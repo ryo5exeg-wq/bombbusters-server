@@ -1,0 +1,10 @@
+{
+  "name": "bombbusters-server",
+  "private": true,
+  "devDependencies": {
+    "wrangler": "latest"
+  },
+  "scripts": {
+    "deploy": "wrangler deploy"
+  }
+}

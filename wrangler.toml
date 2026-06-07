@@ -1,0 +1,13 @@
+name = "bombbusters-room"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# One Durable Object class = one game room (holds all hands = the dealer).
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "GameRoom"
+
+# Free plan requires the SQLite-backed Durable Object storage.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameRoom"]
