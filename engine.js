@@ -147,7 +147,7 @@ function resolveMove(mv,pi){
 function handEmpty(pi){return !S.players[pi].tiles.some(function(t){return !t.cut&&!t.done;});}
 function advanceTurn(){if(S.extra){S.extra=false;pushLog('（追加手番：同じプレイヤーがもう一度）');}else{var pos=S.order.indexOf(S.turn);for(var k=0;k<S.order.length;k++){pos=(pos+1)%S.order.length;if(!handEmpty(S.order[pos]))break;}S.turn=S.order[pos];}S.sel=null;S.ownSel=null;S.iceShield=false;}function isEquipMove(k){return k==='equip'||k==='equipLife';}function scheduleAuto(){if(S._pending){setTimeout(function(){if(S.over||S.turn===0||!S._pending)return;var mv=S._pending;S._pending=null;resolveMove(mv,S.turn);checkEnd();if(S.infoPlace){render();saveGame();return;}if(!S.over&&isEquipMove(mv.kind)){S._pending=decideMove(S.turn);render();saveGame();scheduleAuto();}else{nextTurn();}},900);}}function nextTurn(){if(S.over){S._pending=null;render();saveGame();return;}advanceTurn();if(S.prio&&S.players[S.turn].tiles.some(function(t){return !t.cut&&!t.done;})&&!prioCanAct(S.turn)){S.over='lose';pushLog('<b>'+S.players[S.turn].name+'</b>：今は切断できるコードがない（優先順位の手詰まり）→ 爆発…失敗。','bad');bumpSkill();}S._pending=(!S.over&&S.turn!==0)?decideMove(S.turn):null;render();saveGame();scheduleAuto();}
 
-function detectorResolve(actorPi,targetPi,idxs,decls){var act=S.players[actorPi];var DP=S.players[targetPi];var tiles=idxs.map(function(i){return DP.tiles[i];});var hitTile=null,hitVal=null;for(var d=0;d<decls.length&&!hitTile;d++){var v=decls[d];for(var t=0;t<tiles.length;t++){var T=tiles[t];if(v==='Y'){if(T.t==='Y'&&!T.cut&&!T.done){hitTile=T;hitVal='Y';break;}}else{if(T.t==='B'&&T.n===v&&!T.cut&&!T.done){hitTile=T;hitVal=v;break;}}}}var declStr=decls.map(function(v){return v==='Y'?'黄':v;}).join('・');var posStr=idxs.map(function(i){return L(i);}).join('・');if(hitTile){var my=(hitVal==='Y')?act.tiles.find(function(t){return t.t==='Y'&&!t.cut&&!t.done;}):act.tiles.find(function(t){return t.t==='B'&&t.n===hitVal&&!t.cut&&!t.done;});var hitPos=L(DP.tiles.indexOf(hitTile));hitTile.cut=true;if(my)my.cut=true;if(hitVal==='Y')S.yCut+=2;recomputeCuts();pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 命中！'+DP.name+'の'+hitPos+'の'+(hitVal==='Y'?'黄':hitVal)+'を切断。','ok');}else{S.lives--;var opts=(S.humanSeats&&S.humanSeats.indexOf(targetPi)>=0)?idxs.filter(function(i){var tt=DP.tiles[i];return tt.t!=='R'&&!tt.cut&&!tt.done&&!tt.revealed;}):[];if(opts.length){S.infoPlace={actor:act.name,seat:targetPi,opts:opts};pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 外れ。残機-1。<b>対象のコードに情報トークンを置きます。</b>','bad');}else{var nr=tiles.filter(function(t){return t.t!=='R'&&!t.cut&&!t.done;});var infoPos=null,infoN=null;if(nr.length){nr[0].revealed=true;infoPos=L(DP.tiles.indexOf(nr[0]));infoN=nr[0].n;}pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 外れ。'+(infoPos?DP.name+'の'+infoPos+'（'+infoN+'）に情報トークンを置き':'情報トークンを置き')+'残機-1。','bad');}}}
+function detectorResolve(actorPi,targetPi,idxs,decls){var act=S.players[actorPi];var DP=S.players[targetPi];var tiles=idxs.map(function(i){return DP.tiles[i];});var hitTile=null,hitVal=null;for(var d=0;d<decls.length&&!hitTile;d++){var v=decls[d];for(var t=0;t<tiles.length;t++){var T=tiles[t];if(v==='Y'){if(T.t==='Y'&&!T.cut&&!T.done){hitTile=T;hitVal='Y';break;}}else{if(T.t==='B'&&T.n===v&&!T.cut&&!T.done){hitTile=T;hitVal=v;break;}}}}var declStr=decls.map(function(v){return v==='Y'?'黄':v;}).join('・');var posStr=idxs.map(function(i){return L(i);}).join('・');if(hitTile){var hitPos=L(DP.tiles.indexOf(hitTile));hitTile.cut=true;var candIdx=[];act.tiles.forEach(function(t,ci){if(t.cut||t.done)return;if(hitVal==='Y'){if(t.t==='Y')candIdx.push(ci);}else{if(t.t==='B'&&t.n===hitVal)candIdx.push(ci);}});var humanActor=S.humanSeats&&S.humanSeats.indexOf(actorPi)>=0;if(humanActor&&candIdx.length>1){recomputeCuts();S.detPick={seat:actorPi,hitVal:hitVal};pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 命中！'+DP.name+'の'+hitPos+'の'+(hitVal==='Y'?'黄':hitVal)+'を切断。<b>自分のどれを切るか選びます。</b>','ok');}else{if(candIdx.length)act.tiles[candIdx[0]].cut=true;if(hitVal==='Y')S.yCut+=2;recomputeCuts();pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 命中！'+DP.name+'の'+hitPos+'の'+(hitVal==='Y'?'黄':hitVal)+'を切断。','ok');}}else{S.lives--;var opts=(S.humanSeats&&S.humanSeats.indexOf(targetPi)>=0)?idxs.filter(function(i){var tt=DP.tiles[i];return tt.t!=='R'&&!tt.cut&&!tt.done&&!tt.revealed;}):[];if(opts.length){S.infoPlace={actor:act.name,seat:targetPi,opts:opts};pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 外れ。残機-1。<b>対象のコードに情報トークンを置きます。</b>','bad');}else{var nr=tiles.filter(function(t){return t.t!=='R'&&!t.cut&&!t.done;});var infoPos=null,infoN=null;if(nr.length){nr[0].revealed=true;infoPos=L(DP.tiles.indexOf(nr[0]));infoN=nr[0].n;}pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 外れ。'+(infoPos?DP.name+'の'+infoPos+'（'+infoN+'）に情報トークンを置き':'情報トークンを置き')+'残機-1。','bad');}}}
 function youCutSelect(pi,i){if(S.turn!==0||S.over||S.pick||S.pickInfo)return;if(S.labelMode){return;}if(S.detMode){if(pi===0)return;var cfg=DETCFG[S.detKind];if(S.detSel.length&&S.detSel[0].pi!==pi)S.detSel=[];if(!S.detSel.some(function(x){return x.pi===pi&&x.i===i;})&&S.detSel.length<cfg.tiles)S.detSel.push({pi:pi,i:i});render();return;}S.sel={pi,i};render();}
 function startDetector(){if(S.pickInfo||!S.players[0].detector)return;S.detMode=true;S.detKind='free';S.detEquipIdx=-1;S.detSel=[];S.detDecls=[];S.sel=null;render();}
 function cancelSwap(){S.swapMode=false;S.swapTarget=-1;S.swapEquipIdx=-1;render();}
@@ -369,6 +369,14 @@ function stepAI(humanSeats){
 // apply a human seat's move (mv uses the same shape resolveMove understands)
 function applyMove(seat, mv, humanSeats){
   S.humanSeats=humanSeats;
+  if(mv && mv.kind==='detPick'){
+    if(!S.detPick || S.detPick.seat!==seat) return {ok:false, err:'今は選択のタイミングではありません'};
+    var dt=S.players[seat].tiles[mv.idx];
+    var dok=(S.detPick.hitVal==='Y')?(dt&&dt.t==='Y'&&!dt.cut&&!dt.done):(dt&&dt.t==='B'&&dt.n===S.detPick.hitVal&&!dt.cut&&!dt.done);
+    if(!dok) return {ok:false, err:'切る自分のコードを選んでください'};
+    dt.cut=true; if(S.detPick.hitVal==='Y') S.yCut+=2; recomputeCuts(); S.detPick=null; checkEnd();
+    if(!S.over) serverAdvance(); stepAI(S.humanSeats); return {ok:true};
+  }
   if(mv && mv.kind==='placeMissInfo'){
     if(!S.infoPlace || S.infoPlace.seat!==seat) return {ok:false, err:'今は配置のタイミングではありません'};
     if(S.infoPlace.opts.indexOf(mv.idx)<0) return {ok:false, err:'対象のコードを選んでください'};
@@ -396,7 +404,7 @@ function applyMove(seat, mv, humanSeats){
     if(!(c>=2 && c===(4-cutBlue(mv.n)))) return {ok:false, err:'solo not allowed'};
   }
   resolveMove(mv, seat); checkEnd();
-  if(S.infoPlace) return {ok:true};   // a human target must place a miss info token
+  if(S.infoPlace||S.detPick) return {ok:true};   // wait for human placement / own-code choice
   if(!S.over) serverAdvance();
   stepAI(humanSeats);
   return {ok:true};
@@ -493,7 +501,7 @@ function applyEquip(seat, ei, params, humanSeats){
     default: e.used=true; pushLog('<b>'+me.name+'</b>：「'+e.name+'」を使用。','ok'); break;
   }
   checkEnd();
-  if(advance){ if(S.infoPlace) return {ok:true}; if(!S.over) serverAdvance(); stepAI(humanSeats); }
+  if(advance){ if(S.infoPlace||S.detPick) return {ok:true}; if(!S.over) serverAdvance(); stepAI(humanSeats); }
   return {ok:true};
 }
 
@@ -503,6 +511,7 @@ function viewFor(seat){
     over:S.over, turn:S.turn, captain:S.captain, order:S.order,
     infoPhase:!!S.infoPhase, youPlaceInfo:!!(S.infoPhase&&S.pickInfo&&S.turn===seat),
     youPlaceMissInfo:!!(S.infoPlace&&S.infoPlace.seat===seat), missOpts:(S.infoPlace&&S.infoPlace.seat===seat)?S.infoPlace.opts:null, missInfoPending:!!S.infoPlace, missInfoName:S.infoPlace?S.players[S.infoPlace.seat].name:null,
+    youDetPick:!!(S.detPick&&S.detPick.seat===seat), detPickVal:(S.detPick&&S.detPick.seat===seat)?S.detPick.hitVal:null, detPickPending:!!S.detPick, detPickName:S.detPick?S.players[S.detPick.seat].name:null,
     lives:S.lives, maxLives:S.maxLives, reds:S.reds, redDone:S.redDone,
     yCut:S.yCut, mission:S.mission, prio:S.prio?{nums:S.prio.nums,ptr:S.prio.ptr}:null,
     cut:S.cut,
