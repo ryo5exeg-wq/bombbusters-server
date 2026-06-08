@@ -135,11 +135,11 @@ function resolveMove(mv,pi){
   else if(mv.kind==='matchRevY'){const T=S.players[mv.target.pi].tiles[mv.target.i];T.cut=true;const my=me.tiles.find(t=>t.t==='Y'&&!t.cut);if(my)my.cut=true;S.yCut+=2;pushLog('<b>'+me.name+'</b> → '+S.players[mv.target.pi].name+'の黄に「黄」宣言 → 黄ペア切断。','ok');}
   else if(mv.kind==='revealAllRed'){let c=0;me.tiles.forEach(t=>{if(t.t==='R'&&!t.done){t.done=true;t.revealed=true;S.redDone++;c++;}});pushLog('<b>'+me.name+'</b>：手札が赤のみ → 赤'+c+'本をすべて公開（無力化）。','ok');}
   else if(mv.kind==='equipLife'){S.equip[mv.ei].used=true;S.lives=(S.lives+1);pushLog('<b>'+me.name+'</b>：「'+S.equip[mv.ei].name+'」で残機+1。','ok');}
-  else if(mv.kind==='guess'){const T=S.players[mv.target.pi].tiles[mv.target.i];const where=S.players[mv.target.pi].name+'の'+L(mv.target.i)+'';var gice=(mv.iceIdx!=null&&mv.iceIdx>=0);if(gice)S.equip[mv.iceIdx].used=true;
+  else if(mv.kind==='guess'){const T=S.players[mv.target.pi].tiles[mv.target.i];const where=S.players[mv.target.pi].name+'の'+L(mv.target.i)+'';var gice=(mv.iceIdx!=null&&mv.iceIdx>=0)||S.iceShield;if(mv.iceIdx!=null&&mv.iceIdx>=0)S.equip[mv.iceIdx].used=true;
     if(T.t==='B'&&T.n===mv.n){T.cut=true;const my=me.tiles.find(t=>t.t==='B'&&t.n===mv.n&&!t.cut);if(my)my.cut=true;recomputeCuts();pushLog('<b>'+me.name+'</b> → '+where+'に「'+mv.n+'」宣言 → <b>当たり！</b>'+mv.n+'を2本切断。','ok');}
     else if(T.t==='R'){if(gice){pushLog('<b>'+me.name+'</b> → '+where+'に「'+mv.n+'」宣言 → 赤だったが万能氷で無効。次へ。');}else{T.cut=true;pushLog('<b>'+me.name+'</b> → '+where+'に「'+mv.n+'」宣言 → <b>赤を直撃！爆発</b>','bad');S.over='lose';}}
     else{T.revealed=true;if(gice){pushLog('<b>'+me.name+'</b> → '+where+'に「'+mv.n+'」宣言 → はずれ（実際は'+(T.t==='Y'?'黄':T.n)+'）。万能氷で残機維持・公開。');}else{S.lives--;pushLog('<b>'+me.name+'</b> → '+where+'に「'+mv.n+'」宣言 → はずれ（実際は'+(T.t==='Y'?'黄':T.n)+'）。残機-1・公開。','bad');}}}
-  else if(mv.kind==='guessY'){const T=S.players[mv.target.pi].tiles[mv.target.i];const where=S.players[mv.target.pi].name+'の'+L(mv.target.i)+'';if(T.t==='Y'){T.cut=true;const my=me.tiles.find(t=>t.t==='Y'&&!t.cut&&!t.done);if(my)my.cut=true;S.yCut+=2;pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → <b>黄ペア切断。</b>','ok');}else if(T.t==='R'){T.cut=true;pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → <b>赤を直撃！爆発</b>','bad');S.over='lose';}else{T.revealed=true;S.lives--;pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → はずれ（実際は'+T.n+'）。残機-1・公開。','bad');}}
+  else if(mv.kind==='guessY'){const T=S.players[mv.target.pi].tiles[mv.target.i];const where=S.players[mv.target.pi].name+'の'+L(mv.target.i)+'';if(T.t==='Y'){T.cut=true;const my=me.tiles.find(t=>t.t==='Y'&&!t.cut&&!t.done);if(my)my.cut=true;S.yCut+=2;pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → <b>黄ペア切断。</b>','ok');}else if(T.t==='R'){if(S.iceShield){pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → 赤だったが<b>万能氷で無効</b>。','ok');}else{T.cut=true;pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → <b>赤を直撃！爆発</b>','bad');S.over='lose';}}else{T.revealed=true;S.lives--;pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → はずれ（実際は'+T.n+'）。残機-1・公開。','bad');}}
   else if(mv.kind==='detector'){S.players[pi].detector=false;detectorResolve(pi,mv.targetPi,[mv.i1,mv.i2],[mv.n]);}
   else if(mv.kind==='equip'){var e=S.equip[mv.ei];e.used=true;var P=S.players[pi];var f=P.tiles.find(function(t){return t.t==='B'&&t.n===mv.n&&!t.cut&&!t.done&&!t.revealed;});if(f){f.revealed=true;pushLog('<b>'+me.name+'</b>：装備「'+e.name+'」で自分の '+mv.n+' を1枚公開（仲間へのヒント）。','ok');}else{pushLog('<b>'+me.name+'</b>：装備「'+e.name+'」を使用（対象なし）。');}}
   else{S.passStreak=(S.passStreak||0)+1;pushLog(me.name+'：（行動なし）。');}
@@ -321,7 +321,7 @@ function createGame(opts){
   __inputs.pcount = String(pcount);
   deal();                                  // builds module-global S
   names.forEach(function(nm,i){ if(S.players[i]) S.players[i].name = nm; });
-  finishInfoPhase();                       // (foundation) auto-place initial info tokens
+  S.infoPhase=true; S.infoIdx=0; S.pickInfo=false; S.detPick=null; S.infoPlace=null;
   return S;
 }
 function finishInfoPhase(){
@@ -332,6 +332,19 @@ function finishInfoPhase(){
     if(c.length) P.tiles[c[Math.floor(Math.random()*c.length)]].revealed = true;
   });
   S.turn = S.captain;
+}
+// drive the initial info-token phase: AI seats auto-place, stop at a human seat
+function serverInfoStep(humanSeats){
+  while(true){
+    if(S.infoIdx>=S.order.length){ S.infoPhase=false; S.pickInfo=false; S.turn=S.captain; break; }
+    var pi=S.order[S.infoIdx];
+    if(humanSeats.indexOf(pi)>=0){ S.turn=pi; S.pickInfo=true; return; }
+    var P=S.players[pi], c=[];
+    P.tiles.forEach(function(t,i){ if(t.t==='B'&&!t.revealed&&!t.cut&&!t.done) c.push(i); });
+    if(c.length) P.tiles[c[Math.floor(Math.random()*c.length)]].revealed=true;
+    S.infoIdx++;
+  }
+  stepAI(humanSeats);
 }
 function serverAdvance(){
   advanceTurn();
@@ -354,6 +367,13 @@ function stepAI(humanSeats){
 }
 // apply a human seat's move (mv uses the same shape resolveMove understands)
 function applyMove(seat, mv, humanSeats){
+  if(mv && mv.kind==='useEquip') return applyEquip(seat, mv.ei, mv.params||{}, humanSeats);
+  if(mv && mv.kind==='placeInfo'){
+    if(!(S.infoPhase && S.pickInfo && S.turn===seat)) return {ok:false, err:'今は配置のタイミングではありません'};
+    var pt=S.players[seat].tiles[mv.idx];
+    if(!pt || pt.t!=='B' || pt.cut || pt.done || pt.revealed) return {ok:false, err:'自分の青コードを選んでください'};
+    pt.revealed=true; S.pickInfo=false; S.infoIdx++; serverInfoStep(humanSeats); return {ok:true};
+  }
   if(S.over) return {ok:false, err:'game over'};
   if(S.turn!==seat) return {ok:false, err:'not your turn'};
   if(humanSeats.indexOf(seat)<0) return {ok:false, err:'not a human seat'};
@@ -369,10 +389,106 @@ function applyMove(seat, mv, humanSeats){
   stepAI(humanSeats);
   return {ok:true};
 }
+// apply an equipment card for a human seat (params depend on the kind)
+function applyEquip(seat, ei, params, humanSeats){
+  params = params || {};
+  if(S.over) return {ok:false,err:'game over'};
+  if(S.infoPhase) return {ok:false,err:'準備中は使えません'};
+  if(S.turn!==seat) return {ok:false,err:'あなたの手番に使ってください'};
+  var e=S.equip[ei]; if(!e) return {ok:false,err:'装備が見つかりません'};
+  if(e.used) return {ok:false,err:'使用済みです'};
+  if(e.kind==='himitsu'){ if(S.yCut<=0) return {ok:false,err:'ヒミツ底は黄コードを切断すると使えます'}; }
+  else { if(cutBlue(e.num)<2) return {ok:false,err:'対応する数字のペアが切られると使えます'}; }
+  var me=S.players[seat];
+  var advance=false;       // detector equips end the turn
+  function mateOK(i){ return i>=0 && i<S.players.length && i!==seat; }
+  switch(e.kind){
+    case 'life': S.lives=S.lives+1; e.used=true; pushLog('<b>'+me.name+'</b>：「'+e.name+'」で残機+1。','ok'); break;
+    case 'ice': S.iceShield=true; e.used=true; pushLog('<b>'+me.name+'</b>：「'+e.name+'」でこの手番の失敗ペナルティを無効化。','ok'); break;
+    case 'himitsu': {
+      var pool=[1,2,3,4,5,6,7,8,9,10,11,12].filter(function(id){return !S.equip.some(function(x){return x.num===id;});});
+      if(pool.length<2) return {ok:false,err:'追加できる装備が残っていません'};
+      var add=[]; for(var a=0;a<2&&pool.length;a++) add.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+      add.forEach(function(id){ S.equip.push({id:id,name:EQUIP[id].name,kind:EQUIP[id].kind,used:false,num:id}); });
+      S.equip.sort(function(x,y){return x.num-y.num;}); e.used=true;
+      pushLog('<b>'+me.name+'</b>：「ヒミツ底」で「'+add.map(function(id){return EQUIP[id].name;}).join('」「')+'」を追加。','ok'); break;
+    }
+    case 'reveal': {
+      var rn=parseInt(params.n); var ft=me.tiles.find(function(t){return t.t==='B'&&t.n===rn&&!t.cut&&!t.done&&!t.revealed;});
+      if(!ft) return {ok:false,err:'その番号の自分の青の伏せ札がありません'};
+      ft.revealed=true; e.used=true; pushLog('<b>'+me.name+'</b>：「'+e.name+'」で自分の '+rn+' を公開（ヒント）。','ok'); break;
+    }
+    case 'extra': {
+      var ep=parseInt(params.target); if(!mateOK(ep)) return {ok:false,err:'自分以外のプレイヤーを選んでください'};
+      e.used=true; S.sel=null; S.iceShield=false; S.turn=ep;
+      pushLog('<b>'+me.name+'</b>：「'+e.name+'」→ '+S.players[ep].name+' からゲームを再開。','me');
+      checkEnd(); if(!S.over) stepAI(humanSeats); return {ok:true};
+    }
+    case 'battery': {
+      var ts=(params.targets||[]).filter(function(i){return i>=0&&i<S.players.length&&!S.players[i].detector;});
+      ts=[...new Set(ts)].slice(0,2); if(ts.length===0) return {ok:false,err:'回復対象（探知機使用済み）を選んでください'};
+      ts.forEach(function(i){S.players[i].detector=true;}); e.used=true;
+      pushLog('<b>'+me.name+'</b>：「非常電池」→ '+ts.map(function(i){return S.players[i].name;}).join('・')+' の探知機を回復。','ok'); break;
+    }
+    case 'radar': {
+      var dn=parseInt(params.n); var holders=S.players.filter(function(p){return p.tiles.some(function(t){return t.t==='B'&&t.n===dn&&!t.cut&&!t.done;});}).map(function(p){return p.name;});
+      e.used=true; pushLog('<b>'+me.name+'</b>：「なんでもレーダー」→ '+dn+' を持つのは '+(holders.length?holders.join('・'):'なし')+'。','ok'); break;
+    }
+    case 'swap': {
+      var sp=parseInt(params.target), gi=parseInt(params.give);
+      if(!mateOK(sp)) return {ok:false,err:'相手を選んでください'};
+      var giveT=me.tiles[gi]; if(!giveT||giveT.cut||giveT.done) return {ok:false,err:'渡す自分のコードを選んでください'};
+      var TP=S.players[sp]; var cand=TP.tiles.map(function(t,k){return k;}).filter(function(k){return !TP.tiles[k].cut&&!TP.tiles[k].done;});
+      if(!cand.length) return {ok:false,err:'相手に渡せるコードがありません'};
+      var rk=cand[Math.floor(Math.random()*cand.length)]; var getT=TP.tiles[rk];
+      me.tiles.splice(gi,1); TP.tiles.splice(rk,1); TP.tiles.push(giveT); me.tiles.push(getT);
+      TP.tiles.sort(function(a,b){return a.val-b.val;}); me.tiles.sort(function(a,b){return a.val-b.val;});
+      me.tiles.forEach(function(t){t.relRight=undefined;}); TP.tiles.forEach(function(t){t.relRight=undefined;});
+      e.used=true; pushLog('<b>'+me.name+'</b>：「イレカエシーバー」→ '+TP.name+' と1枚ずつ交換。','me'); break;
+    }
+    case 'kotonal': case 'equal': {
+      var tl=params.tiles||[]; if(tl.length!==2) return {ok:false,err:'隣り合う自分の2本を選んでください'};
+      var lo=Math.min(tl[0],tl[1]), hi=Math.max(tl[0],tl[1]); if(hi!==lo+1) return {ok:false,err:'隣り合う2本を選んでください'};
+      var t1=me.tiles[lo], t2=me.tiles[hi]; if(!t1||!t2) return {ok:false,err:'選択が不正です'};
+      function mvv(t){return t.t==='B'?('N'+t.n):(t.t==='Y'?'Y':('R'+t.n));}
+      var same=(t1.t!=='R'&&t2.t!=='R'&&mvv(t1)===mvv(t2)); var wantSame=(e.kind==='equal');
+      if(same!==wantSame) return {ok:false,err:wantSame?'この2本は同じ数字ではありません':'この2本は同じ数字です'};
+      me.tiles[lo].relRight=wantSame?'=':'\u2260'; e.used=true;
+      pushLog('<b>'+me.name+'</b>：「'+e.name+'」→ '+me.name+' の'+L(lo)+'・'+L(hi)+'は '+(wantSame?'＝':'≠')+'。','me'); break;
+    }
+    case 'super': {
+      var up=parseInt(params.target), un=parseInt(params.n);
+      if(!mateOK(up)) return {ok:false,err:'対象を選んでください'};
+      if(isNaN(un)||un<1||un>12) return {ok:false,err:'数値(1-12)を指定してください'};
+      if(!me.tiles.some(function(t){return t.t==='B'&&t.n===un&&!t.cut&&!t.done;})) return {ok:false,err:'合わせる'+un+'が自分にありません'};
+      var DP=S.players[up]; var sidx=[]; DP.tiles.forEach(function(t,ii){if(!t.cut&&!t.done)sidx.push(ii);});
+      detectorResolve(seat, up, sidx, [un]); e.used=true; advance=true; break;
+    }
+    case 'mitsu': case 'dochi': {
+      var dp=parseInt(params.targetPi); var idxs=params.idxs||[]; var decls=params.decls||[];
+      var need=(e.kind==='mitsu')?3:1; var ndec=(e.kind==='mitsu')?1:2;
+      if(!mateOK(dp)) return {ok:false,err:'対象を選んでください'};
+      if(idxs.length!==need) return {ok:false,err:'相手のコードを'+need+'本選んでください'};
+      if(decls.length!==ndec) return {ok:false,err:'数値を'+ndec+'個宣言してください'};
+      // must hold each declared value
+      for(var di=0; di<decls.length; di++){ var dv=decls[di];
+        var hold = dv==='Y' ? me.tiles.some(function(t){return t.t==='Y'&&!t.cut&&!t.done;}) : me.tiles.some(function(t){return t.t==='B'&&t.n===dv&&!t.cut&&!t.done;});
+        if(!hold) return {ok:false,err:'合わせる'+(dv==='Y'?'黄':dv)+'が自分にありません'};
+      }
+      detectorResolve(seat, dp, idxs, decls); e.used=true; advance=true; break;
+    }
+    default: e.used=true; pushLog('<b>'+me.name+'</b>：「'+e.name+'」を使用。','ok'); break;
+  }
+  checkEnd();
+  if(advance){ if(!S.over) serverAdvance(); stepAI(humanSeats); }
+  return {ok:true};
+}
+
 // per-seat masked view (others' un-revealed tiles are hidden)
 function viewFor(seat){
   return {
     over:S.over, turn:S.turn, captain:S.captain, order:S.order,
+    infoPhase:!!S.infoPhase, youPlaceInfo:!!(S.infoPhase&&S.pickInfo&&S.turn===seat),
     lives:S.lives, maxLives:S.maxLives, reds:S.reds, redDone:S.redDone,
     yCut:S.yCut, mission:S.mission, prio:S.prio?{nums:S.prio.nums,ptr:S.prio.ptr}:null,
     cut:S.cut,
@@ -395,5 +511,5 @@ function getState(){ return S; }
 function setState(st){ S = st; }
 
 if (typeof module!=='undefined' && module.exports){
-  module.exports = { createGame, viewFor, applyMove, stepAI, serverAdvance, getState, setState, finishInfoPhase };
+  module.exports = { createGame, viewFor, applyMove, applyEquip, stepAI, serverAdvance, serverInfoStep, getState, setState, finishInfoPhase };
 }

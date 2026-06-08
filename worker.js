@@ -83,18 +83,21 @@ export class GameRoom {
     if (path === 'start') {
       if (this.room.started) return json({ error: 'already started' }, 400);
       if (body.playerId !== this.room.host) return json({ error: 'only host can start' }, 403);
-      const names = [];
-      for (let s = 0; s < this.room.pcount; s++) {
-        const human = this.room.players.find(p => p.seat === s);
-        if (human) { names.push(human.name); }
-        else { names.push('AI-' + AI_NAMES[s % AI_NAMES.length]); }
-      }
-      this.room.humanSeats = this.room.players.map(p => p.seat);
-      Engine.createGame({ names, mission: this.room.mission, pcount: this.room.pcount });
-      // auto-play any AI seats before the first human turn
-      Engine.stepAI(this.room.humanSeats);
-      this.room.game = Engine.getState();
+      this.dealNewGame();
       this.room.started = true;
+      await this.save();
+      return json({ ok: true, room: this.publicRoom() });
+    }
+
+    // --- restart: same room / same players, deal a fresh game ---
+    if (path === 'restart') {
+      if (!this.room.started) return json({ error: 'not started' }, 400);
+      const isHost = body.playerId === this.room.host;
+      const over = this.room.game && this.room.game.over;
+      if (!isHost && !over) return json({ error: 'ホスト以外はゲーム終了後に再戦できます' }, 403);
+      // allow host to change mission/pcount for the next game
+      if (isHost && body.mission) this.room.mission = body.mission;
+      this.dealNewGame();
       await this.save();
       return json({ ok: true, room: this.publicRoom() });
     }
@@ -128,6 +131,17 @@ export class GameRoom {
     return json({ error: 'unknown route' }, 404);
   }
 
+  dealNewGame() {
+    const names = [];
+    for (let s = 0; s < this.room.pcount; s++) {
+      const human = this.room.players.find(p => p.seat === s);
+      names.push(human ? human.name : 'AI-' + AI_NAMES[s % AI_NAMES.length]);
+    }
+    this.room.humanSeats = this.room.players.map(p => p.seat);
+    Engine.createGame({ names, mission: this.room.mission, pcount: this.room.pcount });
+    Engine.serverInfoStep(this.room.humanSeats);
+    this.room.game = Engine.getState();
+  }
   addPlayer(name) {
     const used = new Set(this.room.players.map(p => p.seat));
     let seat = 0; while (used.has(seat)) seat++;
