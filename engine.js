@@ -321,6 +321,8 @@ function createGame(opts){
   __inputs.pcount = String(pcount);
   deal();                                  // builds module-global S
   names.forEach(function(nm,i){ if(S.players[i]) S.players[i].name = nm; });
+  // clear any partial reveal from deal()'s client-style info step, then start a clean server info phase
+  S.players.forEach(function(p){ p.tiles.forEach(function(t){ t.revealed=false; }); });
   S.infoPhase=true; S.infoIdx=0; S.pickInfo=false; S.detPick=null; S.infoPlace=null;
   return S;
 }
