@@ -355,13 +355,45 @@ function serverAdvance(){
     S.over='lose';
   }
 }
+// If a paused state (miss-info placement / own-cut choice / info-phase placement)
+// belongs to a seat that is no longer an active human (disconnected), resolve it
+// automatically so the game never stalls waiting on someone who left.
+function autoResolvePauses(humanSeats){
+  var changed=true, guard=0;
+  while(changed && guard++<50){
+    changed=false;
+    if(S.infoPlace && humanSeats.indexOf(S.infoPlace.seat)<0){
+      var DP=S.players[S.infoPlace.seat];
+      var opt=(S.infoPlace.opts&&S.infoPlace.opts.length)?S.infoPlace.opts[0]:null;
+      if(opt!=null){ DP.tiles[opt].revealed=true; }
+      else{ var nr=DP.tiles.find(function(t){return t.t!=='R'&&!t.cut&&!t.done&&!t.revealed;}); if(nr) nr.revealed=true; }
+      S.infoPlace=null; checkEnd(); changed=true;
+    }
+    if(S.detPick && S.detPick.seat!=null && humanSeats.indexOf(S.detPick.seat)<0){
+      var act=S.players[S.detPick.seat];
+      var ci=act.tiles.findIndex(function(t){return !t.cut&&!t.done&&((S.detPick.hitVal==='Y')?t.t==='Y':(t.t==='B'&&t.n===S.detPick.hitVal));});
+      if(ci>=0){ act.tiles[ci].cut=true; if(S.detPick.hitVal==='Y') S.yCut+=2; }
+      recomputeCuts(); S.detPick=null; checkEnd(); changed=true;
+    }
+    if(S.infoPhase && S.pickInfo && humanSeats.indexOf(S.turn)<0){
+      var P=S.players[S.turn], c=[];
+      P.tiles.forEach(function(t,i){ if(t.t==='B'&&!t.revealed&&!t.cut&&!t.done) c.push(i); });
+      if(c.length) P.tiles[c[Math.floor(Math.random()*c.length)]].revealed=true;
+      S.pickInfo=false; S.infoIdx++; serverInfoStep(humanSeats); changed=true;
+    }
+  }
+}
 // auto-play every AI seat until it is a human seat's turn (or game over)
 function stepAI(humanSeats){
   S.humanSeats=humanSeats;
+  autoResolvePauses(humanSeats);
+  if(S.infoPhase) return;     // info phase is driven by serverInfoStep
   var guard=0;
   while(!S.over && humanSeats.indexOf(S.turn)<0 && guard++<300){
+    if(S.infoPlace||S.detPick) return;   // pending for an active human -> pause
     var mv=decideMove(S.turn); resolveMove(mv,S.turn); checkEnd();
-    if(S.infoPlace) return;   // pause: the target human must place a miss info token
+    autoResolvePauses(humanSeats);
+    if(S.infoPlace||S.detPick) return;   // newly created, belongs to active human -> pause
     if(S.over) break;
     serverAdvance();
   }
