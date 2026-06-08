@@ -425,6 +425,15 @@ function applyMove(seat, mv, humanSeats){
     if(!pt || pt.t!=='B' || pt.cut || pt.done || pt.revealed) return {ok:false, err:'自分の青コードを選んでください'};
     pt.revealed=true; S.pickInfo=false; S.infoIdx++; serverInfoStep(humanSeats); return {ok:true};
   }
+  if(mv && mv.kind==='revealAllRed'){
+    if(S.over) return {ok:false, err:'game over'};
+    if(S.turn!==seat) return {ok:false, err:'not your turn'};
+    if(humanSeats.indexOf(seat)<0) return {ok:false, err:'not a human seat'};
+    var ract=S.players[seat].tiles.filter(function(t){return !t.cut&&!t.done;});
+    if(!ract.length || !ract.every(function(t){return t.t==='R';})) return {ok:false, err:'赤の公開は手札が赤のみのときだけできます'};
+    resolveMove(mv, seat); checkEnd();
+    if(!S.over) serverAdvance(); stepAI(humanSeats); return {ok:true};
+  }
   if(S.over) return {ok:false, err:'game over'};
   if(S.turn!==seat) return {ok:false, err:'not your turn'};
   if(humanSeats.indexOf(seat)<0) return {ok:false, err:'not a human seat'};
