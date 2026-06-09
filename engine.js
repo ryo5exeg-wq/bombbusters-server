@@ -31,7 +31,7 @@ let S=null;
 const VN=['ケン','アオイ','ユメ','リク'];
 const EQUIP={1:{name:'コトナルラベル',kind:'kotonal'},2:{name:'イレカエシーバー',kind:'swap'},3:{name:'ミッツケル探知機',kind:'mitsu'},4:{name:'ヒント付箋',kind:'reveal'},5:{name:'スーパー探知機',kind:'super'},6:{name:'失敗帳消し機',kind:'life'},7:{name:'非常電池',kind:'battery'},8:{name:'なんでもレーダー',kind:'radar'},9:{name:'万能氷',kind:'ice'},10:{name:'ドッチカアタ・レイ',kind:'dochi'},11:{name:'いつでもコーヒー',kind:'extra'},12:{name:'イコールラベル',kind:'equal'},13:{name:'ヒミツ底',kind:'himitsu'}};
 const DETCFG={free:{tiles:2,decls:1,yellow:false,name:'フツー探知機',sel:'2本'},mitsu:{tiles:3,decls:1,yellow:false,name:'ミッツケル探知機',sel:'3本'},dochi:{tiles:1,decls:2,yellow:true,name:'ドッチカアタ・レイ',sel:'1本'}};
-const MISSIONS={'4':{reds:1,yellows:2,name:'#4 実地訓練1日目'},'8':{reds:1,yellows:2,name:'#8 最終試験'},'9':{reds:1,yellows:2,name:'#9 優先順位の判断'},'11':{reds:1,yellows:2,name:'#11 赤のような青'},'16':{reds:1,yellows:2,name:'#16 つじつまは合っている'}};
+const MISSIONS={'4':{reds:1,yellows:2,name:'#4 実地訓練1日目'},'8':{reds:1,yellows:2,name:'#8 最終試験'},'9':{reds:1,yellows:2,name:'#9 優先順位の判断'},'11':{reds:0,yellows:2,name:'#11 赤のような青'},'16':{reds:1,yellows:2,name:'#16 つじつまは合っている'}};
 function g(id){return document.getElementById(id);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function pick(a,k){return shuffle(a.slice()).slice(0,k);}
@@ -522,9 +522,11 @@ function applyEquip(seat, ei, params, humanSeats){
       pushLog('<b>'+me.name+'</b>：「ヒミツ底」で「'+add.map(function(id){return EQUIP[id].name;}).join('」「')+'」を追加。','ok'); break;
     }
     case 'reveal': {
-      var rn=parseInt(params.n); var ft=me.tiles.find(function(t){return t.t==='B'&&t.n===rn&&!t.cut&&!t.done&&!t.revealed;});
-      if(!ft) return {ok:false,err:'その番号の自分の青の伏せ札がありません'};
-      ft.revealed=true; e.used=true; pushLog('<b>'+me.name+'</b>：「'+e.name+'」で自分の '+rn+' を公開（ヒント）。','ok'); break;
+      var ft=null;
+      if(params.idx!=null){ var _ri=parseInt(params.idx); var _rc=me.tiles[_ri]; if(_rc&&_rc.t==='B'&&!_rc.cut&&!_rc.done&&!_rc.revealed) ft=_rc; }
+      else { var rn=parseInt(params.n); ft=me.tiles.find(function(t){return t.t==='B'&&t.n===rn&&!t.cut&&!t.done&&!t.revealed;}); }
+      if(!ft) return {ok:false,err:'公開できる自分の青コードを選んでください'};
+      ft.revealed=true; e.used=true; pushLog('<b>'+me.name+'</b>：「'+e.name+'」で自分の '+ft.n+' を公開（ヒント）。','ok'); break;
     }
     case 'extra': {
       var ep=parseInt(params.target); if(!mateOK(ep)) return {ok:false,err:'自分以外のプレイヤーを選んでください'};
@@ -610,7 +612,7 @@ function viewFor(seat){
         name:p.name, detector:p.detector,
         tiles:p.tiles.map(function(t){
           var shown = (pi===seat) || t.revealed || t.cut || t.done;
-          if(shown) return {t:t.t,n:t.n,val:t.val,cut:t.cut,done:t.done,revealed:t.revealed,relRight:t.relRight||null};
+          if(shown) return {t:t.t,n:t.n,val:t.val,cut:t.cut,done:t.done,revealed:t.revealed,danger:!!t.danger,relRight:t.relRight||null};
           return {masked:true, cut:t.cut, done:t.done};
         })
       };
