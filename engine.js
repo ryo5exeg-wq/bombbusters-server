@@ -95,6 +95,17 @@ function remTypeIn(type,leftV,rightV){var c=0;S.players.forEach(function(p){p.ti
 function activeCount(){var c=0;S.players.forEach(function(p){if(p.tiles.some(function(t){return !t.cut&&!t.done;}))c++;});return c;}
 function yProb(p2,i){var P=S.players[p2];var rr=rawRange(p2,i);var lo=i;while(lo-1>=0&&!(P.tiles[lo-1].revealed||P.tiles[lo-1].cut||P.tiles[lo-1].done))lo--;var hi=i;while(hi+1<P.tiles.length&&!(P.tiles[hi+1].revealed||P.tiles[hi+1].cut||P.tiles[hi+1].done))hi++;var k=hi-lo+1,j=i-lo;var E=rr.leftV+(j+1)/(k+1)*(rr.rightV-rr.leftV);var wY=0,wR=0,wB=0;for(var n=1;n<=12;n++){if(n>rr.leftV&&n<rr.rightV){var c=hiddenRem(n);if(c>0)wB+=c/(1+Math.pow(n-E,2));}}S.players.forEach(function(p){p.tiles.forEach(function(t){if((t.t==='Y'||t.t==='R')&&!t.cut&&!t.done&&!t.revealed&&t.val>rr.leftV&&t.val<rr.rightV){var w=1/(1+Math.pow(t.val-E,2));if(t.t==='Y')wY+=w;else wR+=w;}});});var d=wY+wR+wB;if(d<=0)return {pY:0,pR:0};return {pY:wY/d,pR:wR/d};}
 function buildDetector(pi,n){var me=S.players[pi];if(!me.detector)return null;if(!me.tiles.some(function(t){return t.t==='B'&&t.n===n&&!t.cut&&!t.done;}))return null;if(hiddenRem(n)<=0)return null;if(prioLocked(n))return null;function pn(rg){var d=0;for(var m=rg.lo;m<=rg.hi;m++)d+=hiddenRem(m);return d>0?hiddenRem(n)/d:0;}var best=null;S.players.forEach(function(p,p2){if(p2===pi)return;for(var i=0;i<p.tiles.length-1;i++){var a=p.tiles[i],b=p.tiles[i+1];if(a.cut||a.done||a.revealed)continue;if(b.cut||b.done||b.revealed)continue;var ra=tileRange(p2,i),rb=tileRange(p2,i+1);var aIn=(n>=ra.lo&&n<=ra.hi),bIn=(n>=rb.lo&&n<=rb.hi);if(!aIn&&!bIn)continue;var pa=aIn?pn(ra):0,pb=bIn?pn(rb):0;var pc=1-(1-pa)*(1-pb);if(!best||pc>best.pc)best={p2:p2,i1:i,i2:i+1,pc:pc};}});if(!best)return null;return {kind:'detector',targetPi:best.p2,i1:best.i1,i2:best.i2,n:n,_pc:best.pc,text:'<span style="color:var(--green)">探知機</span>：'+me.name+'は探知機で '+S.players[best.p2].name+' の隣り合う2本（'+L(best.i1)+'・'+L(best.i2)+'）に「'+n+'」を宣言（赤でも爆発しない）。'};}
+function tileDist(p2,i){var P=S.players[p2];var rr=rawRange(p2,i);
+  var lo=i;while(lo-1>=0&&!(P.tiles[lo-1].revealed||P.tiles[lo-1].cut||P.tiles[lo-1].done))lo--;
+  var hi=i;while(hi+1<P.tiles.length&&!(P.tiles[hi+1].revealed||P.tiles[hi+1].cut||P.tiles[hi+1].done))hi++;
+  var k=hi-lo+1,j=i-lo;var Ev=rr.leftV+(j+1)/(k+1)*(rr.rightV-rr.leftV);
+  var wB={},wY=0,wR=0,tot=0;
+  for(var nn=1;nn<=12;nn++){if(nn>rr.leftV&&nn<rr.rightV){var c=hiddenRem(nn);if(c>0){var w=c/(1+Math.pow(nn-Ev,2));wB[nn]=w;tot+=w;}}}
+  S.players.forEach(function(p){p.tiles.forEach(function(t){if((t.t==='Y'||t.t==='R')&&!t.cut&&!t.done&&!t.revealed&&t.val>rr.leftV&&t.val<rr.rightV){var w=1/(1+Math.pow(t.val-Ev,2));if(t.t==='Y'){wY+=w;}else{wR+=w;}tot+=w;}});});
+  if(tot<=0)return {byNum:{},pY:0,pR:0};
+  var byNum={};for(var key in wB)byNum[key]=wB[key]/tot;
+  return {byNum:byNum,pY:wY/tot,pR:wR/tot};
+}
 function decideMove(pi){
   const me=S.players[pi];const mine=ownActive(me);
   for(let n=1;n<=12;n++){if(prioLocked(n))continue;const h=mine.filter(o=>o.t.t==='B'&&o.t.n===n).length;if(h>=2&&h===(4-cutBlue(n)))return{kind:'solo',n,text:'<span style="color:var(--green)">確実</span>：'+me.name+'は番号 <b>'+n+'</b> の残り'+h+'本を全部持っている → 単独で切る。'};}
@@ -109,22 +120,45 @@ function decideMove(pi){
   if(S.lives<=2){var li=S.equip.findIndex(function(e){return !e.used&&e.kind==='life'&&cutBlue(e.num)>=2;});if(li>=0)return{kind:'equipLife',ei:li,text:'<span style="color:var(--green)">装備</span>：'+me.name+'は残機が少ないので「'+S.equip[li].name+'」で残機回復。'};}
   var hidden=[];S.players.forEach(function(p,p2){if(p2===pi)return;p.tiles.forEach(function(t,i){if(!t.cut&&!t.done&&!t.revealed)hidden.push({pi:p2,i:i});});});
   var myNums=[...new Set(mine.filter(function(o){return o.t.t==='B'&&!prioLocked(o.t.n);}).map(function(o){return o.t.n;}))];
-  var best=null;
-  hidden.forEach(function(o){var rg=tileRange(o.pi,o.i);var denom=0;for(var m=rg.lo;m<=rg.hi;m++){denom+=hiddenRem(m);}if(denom<=0)return;myNums.forEach(function(n){if(n>=rg.lo&&n<=rg.hi){var hr=hiddenRem(n);if(hr<=0)return;var p=hr/denom;if(!best||p>best.p)best={pi:o.pi,i:o.i,n:n,p:p};}});});
-  if(!best){var dmf=null;for(var qi=0;qi<myNums.length;qi++){var _c=buildDetector(pi,myNums[qi]);if(_c&&(!dmf||_c._pc>dmf._pc))dmf=_c;}if(dmf)return dmf;
-    if(mine.some(function(o){return o.t.t==='Y';})){var yb=null;S.players.forEach(function(p,p2){if(p2===pi)return;p.tiles.forEach(function(t,yi){if(t.cut||t.done||t.revealed)return;var yp=yProb(p2,yi);if(yp.pY<=0)return;if(!yb||yp.pY>yb.pY)yb={pi:p2,i:yi,pY:yp.pY,pR:yp.pR};});});if(yb)return{kind:'guessY',target:{pi:yb.pi,i:yb.i},text:'<span style="color:var(--gold)">黄</span>：'+me.name+'は '+S.players[yb.pi].name+' の'+L(yb.i)+'を黄と読んで「黄」宣言（黄'+Math.round(yb.pY*100)+'%）。'};}
-    var heldB=[...new Set(mine.filter(function(o){return o.t.t==='B'&&!prioLocked(o.t.n);}).map(function(o){return o.t.n;}))];
-    if(heldB.length){var fb=null;S.players.forEach(function(p,p2){if(p2===pi)return;p.tiles.forEach(function(t,ii){if(t.cut||t.done||t.revealed)return;var rg=tileRange(p2,ii);heldB.forEach(function(n){var inR=(n>=rg.lo&&n<=rg.hi);var sc=inR?(hiddenRem(n)+1):-(Math.min(Math.abs(n-rg.lo),Math.abs(n-rg.hi)));if(!fb||sc>fb.sc)fb={pi:p2,i:ii,n:n,sc:sc};});});});if(fb)return{kind:'guess',n:fb.n,target:{pi:fb.pi,i:fb.i},text:'<span style="color:#d6453f">勝負</span>：'+me.name+'は確実な読みがないため、最も可能性の高い '+S.players[fb.pi].name+' の'+L(fb.i)+'へ「'+fb.n+'」を宣言。'};}
-    if(mine.some(function(o){return o.t.t==='R';}))return{kind:'revealAllRed',text:me.name+'は手がかりが尽きたため赤を公開して処理する。'};
-    return{kind:'pass',text:me.name+'：打つ手なし（まれ）。'};}
-  var thr=Math.min(0.85,0.42+skill*0.04);
-  if(best.p>=thr)return{kind:'guess',n:best.n,target:{pi:best.pi,i:best.i},text:'<span style="color:var(--gold)">読み</span>：'+me.name+'は '+S.players[best.pi].name+' の'+L(best.i)+'（範囲から'+best.n+'が濃厚 '+Math.round(best.p*100)+'%）に「'+best.n+'」。'};
-  var dm=buildDetector(pi,best.n);if(dm)return dm;
-  var ie=S.equip.findIndex(function(e){return !e.used&&e.kind==='ice'&&cutBlue(e.num)>=2;});
-  if(ie>=0)return{kind:'guess',n:best.n,target:{pi:best.pi,i:best.i},iceIdx:ie,text:'<span style="color:#2c7fe0">装備+読み</span>：'+me.name+'は「'+S.equip[ie].name+'」で安全に '+S.players[best.pi].name+' の'+L(best.i)+'へ「'+best.n+'」。'};
+  var haveY=mine.some(function(o){return o.t.t==='Y';});
+  // Risk-aware reads: each candidate tile gets a full identity distribution, so a
+  // blue 2-person cut is weighed against the chance the tile is RED (=instant loss).
+  var bg=null;
+  hidden.forEach(function(o){var dist=tileDist(o.pi,o.i);myNums.forEach(function(n){var pn=dist.byNum[n]||0;if(pn<=0)return;if(!bg||pn>bg.p)bg={pi:o.pi,i:o.i,n:n,p:pn,pR:dist.pR};});});
+  var by=null;
+  if(haveY){hidden.forEach(function(o){var dist=tileDist(o.pi,o.i);if(dist.pY<=0)return;if(!by||dist.pY>by.p)by={pi:o.pi,i:o.i,p:dist.pY,pR:dist.pR};});}
+  var dm=null;for(var qi=0;qi<myNums.length;qi++){var _c=buildDetector(pi,myNums[qi]);if(_c&&(!dm||_c._pc>dm._pc))dm=_c;}
+  function gB(b,tag){return{kind:'guess',n:b.n,target:{pi:b.pi,i:b.i},text:'<span style="color:var(--gold)">'+tag+'</span>：'+me.name+'は '+S.players[b.pi].name+' の'+L(b.i)+'へ「'+b.n+'」（青'+Math.round(b.p*100)+'%・赤'+Math.round(b.pR*100)+'%）。'};}
+  function gY(b){return{kind:'guessY',target:{pi:b.pi,i:b.i},text:'<span style="color:var(--gold)">黄</span>：'+me.name+'は '+S.players[b.pi].name+' の'+L(b.i)+'を黄と読んで「黄」宣言（黄'+Math.round(b.p*100)+'%）。'};}
+  var skl=S.skill||0;
+  var redCap=0.05;                       // never knowingly risk an instant-death red guess
+  var thr=Math.min(0.92,0.70+skl*0.03);  // confident 2-person cut threshold
+  var lowThr=0.60;                        // moderate (still red-safe) cut threshold
+  var detThr=0.60;                        // use the detector when this reliable
+  var forcedFloor=0.45;                   // floor when breaking an all-pass deadlock
+  if(bg&&bg.p>=thr&&bg.pR<=redCap)return gB(bg,'読み');
+  if(by&&by.p>=thr&&by.pR<=redCap)return gY(by);
+  if(dm&&dm._pc>=detThr)return dm;
+  if(bg&&bg.p>=lowThr&&bg.pR<=redCap)return gB(bg,'読み');
   var er=S.equip.findIndex(function(e){return !e.used&&e.kind==='reveal'&&cutBlue(e.num)>=2;});
-  if(er>=0)return{kind:'equip',ei:er,n:best.n,text:'<span style="color:var(--blue)">装備</span>：'+me.name+'は自信が無いので「'+S.equip[er].name+'」で <b>'+best.n+'</b> を探る。'};
-  return{kind:'guess',n:best.n,target:{pi:best.pi,i:best.i},text:'<span style="color:#d6453f">勝負</span>：'+me.name+'は '+S.players[best.pi].name+' の'+L(best.i)+'へ「'+best.n+'」（'+Math.round(best.p*100)+'%）。'};
+  if(er>=0&&bg)return{kind:'equip',ei:er,n:bg.n,text:'<span style="color:var(--blue)">装備</span>：'+me.name+'は自信が無いので「'+S.equip[er].name+'」で <b>'+bg.n+'</b> を探る。'};
+  var ie=S.equip.findIndex(function(e){return !e.used&&e.kind==='ice'&&cutBlue(e.num)>=2;});
+  if(ie>=0&&bg)return{kind:'guess',n:bg.n,target:{pi:bg.pi,i:bg.i},iceIdx:ie,text:'<span style="color:#2c7fe0">装備+読み</span>：'+me.name+'は「'+S.equip[ie].name+'」で安全に '+S.players[bg.pi].name+' の'+L(bg.i)+'へ「'+bg.n+'」。'};
+  if(dm)return dm;
+  if(by&&by.p>=lowThr&&by.pR<=redCap)return gY(by);
+  if(bg&&bg.pR<=redCap&&bg.p>=forcedFloor)return gB(bg,'勝負');
+  // break an all-pass deadlock: once everyone has passed around, force the safest action
+  var forced=(S.passStreak||0)>=Math.max(1,activePlayerCount()-1);
+  if(forced){
+    var cand=[];
+    if(bg)cand.push({m:gB(bg,'勝負'),p:bg.p,pR:bg.pR});
+    if(by)cand.push({m:gY(by),p:by.p,pR:by.pR});
+    if(dm)cand.push({m:dm,p:dm._pc,pR:0});
+    cand.sort(function(a,b){if(Math.abs(a.pR-b.pR)>0.001)return a.pR-b.pR;return b.p-a.p;});
+    if(cand.length)return cand[0].m;
+  }
+  if(mine.some(function(o){return o.t.t==='R';}))return{kind:'revealAllRed',text:me.name+'は手がかりが尽きたため赤を公開して処理する。'};
+  return{kind:'pass',text:me.name+'：安全な手がないので待機。'};
 }
 function resolveMove(mv,pi){
   const me=S.players[pi];
@@ -145,6 +179,7 @@ function resolveMove(mv,pi){
   else{S.passStreak=(S.passStreak||0)+1;pushLog(me.name+'：（行動なし）。');}
 }
 function handEmpty(pi){return !S.players[pi].tiles.some(function(t){return !t.cut&&!t.done;});}
+function activePlayerCount(){var c=0;S.order.forEach(function(pi){if(!handEmpty(pi))c++;});return c;}
 function advanceTurn(){if(S.extra){S.extra=false;pushLog('（追加手番：同じプレイヤーがもう一度）');}else{var pos=S.order.indexOf(S.turn);for(var k=0;k<S.order.length;k++){pos=(pos+1)%S.order.length;if(!handEmpty(S.order[pos]))break;}S.turn=S.order[pos];}S.sel=null;S.ownSel=null;S.iceShield=false;}function isEquipMove(k){return k==='equip'||k==='equipLife';}function scheduleAuto(){if(S._pending){setTimeout(function(){if(S.over||S.turn===0||!S._pending)return;var mv=S._pending;S._pending=null;resolveMove(mv,S.turn);checkEnd();if(S.infoPlace){render();saveGame();return;}if(!S.over&&isEquipMove(mv.kind)){S._pending=decideMove(S.turn);render();saveGame();scheduleAuto();}else{nextTurn();}},900);}}function nextTurn(){if(S.over){S._pending=null;render();saveGame();return;}advanceTurn();if(S.prio&&S.players[S.turn].tiles.some(function(t){return !t.cut&&!t.done;})&&!prioCanAct(S.turn)){S.over='lose';pushLog('<b>'+S.players[S.turn].name+'</b>：今は切断できるコードがない（優先順位の手詰まり）→ 爆発…失敗。','bad');bumpSkill();}S._pending=(!S.over&&S.turn!==0)?decideMove(S.turn):null;render();saveGame();scheduleAuto();}
 
 function detectorResolve(actorPi,targetPi,idxs,decls){var act=S.players[actorPi];var DP=S.players[targetPi];var tiles=idxs.map(function(i){return DP.tiles[i];});var hitTile=null,hitVal=null;for(var d=0;d<decls.length&&!hitTile;d++){var v=decls[d];for(var t=0;t<tiles.length;t++){var T=tiles[t];if(v==='Y'){if(T.t==='Y'&&!T.cut&&!T.done){hitTile=T;hitVal='Y';break;}}else{if(T.t==='B'&&T.n===v&&!T.cut&&!T.done){hitTile=T;hitVal=v;break;}}}}var declStr=decls.map(function(v){return v==='Y'?'黄':v;}).join('・');var posStr=idxs.map(function(i){return L(i);}).join('・');if(hitTile){var hitPos=L(DP.tiles.indexOf(hitTile));hitTile.cut=true;var candIdx=[];act.tiles.forEach(function(t,ci){if(t.cut||t.done)return;if(hitVal==='Y'){if(t.t==='Y')candIdx.push(ci);}else{if(t.t==='B'&&t.n===hitVal)candIdx.push(ci);}});var humanActor=S.humanSeats&&S.humanSeats.indexOf(actorPi)>=0;if(humanActor&&candIdx.length>1){recomputeCuts();S.detPick={seat:actorPi,hitVal:hitVal};pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 命中！'+DP.name+'の'+hitPos+'の'+(hitVal==='Y'?'黄':hitVal)+'を切断。<b>自分のどれを切るか選びます。</b>','ok');}else{if(candIdx.length)act.tiles[candIdx[0]].cut=true;if(hitVal==='Y')S.yCut+=2;recomputeCuts();pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 命中！'+DP.name+'の'+hitPos+'の'+(hitVal==='Y'?'黄':hitVal)+'を切断。','ok');}}else{S.lives--;var opts=(S.humanSeats&&S.humanSeats.indexOf(targetPi)>=0)?idxs.filter(function(i){var tt=DP.tiles[i];return tt.t!=='R'&&!tt.cut&&!tt.done&&!tt.revealed;}):[];if(opts.length){S.infoPlace={actor:act.name,seat:targetPi,opts:opts};pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 外れ。残機-1。<b>対象のコードに情報トークンを置きます。</b>','bad');}else{var nr=tiles.filter(function(t){return t.t!=='R'&&!t.cut&&!t.done;});var infoPos=null,infoN=null;if(nr.length){nr[0].revealed=true;infoPos=L(DP.tiles.indexOf(nr[0]));infoN=nr[0].n;}pushLog('<b>'+act.name+'</b>：探知機 → '+DP.name+' の'+posStr+'（'+idxs.length+'本）に「'+declStr+'」→ 外れ。'+(infoPos?DP.name+'の'+infoPos+'（'+infoN+'）に情報トークンを置き':'情報トークンを置き')+'残機-1。','bad');}}}
@@ -353,6 +388,9 @@ function serverAdvance(){
   advanceTurn();
   if(S.prio && S.players[S.turn].tiles.some(function(t){return !t.cut&&!t.done;}) && !prioCanAct(S.turn)){
     S.over='lose';
+  }
+  if((S.passStreak||0) >= 2*Math.max(1,activePlayerCount())){
+    S.over='lose'; pushLog('全員が安全に動けず手詰まり → 解除失敗。','bad'); bumpSkill();
   }
 }
 // If a paused state (miss-info placement / own-cut choice / info-phase placement)
