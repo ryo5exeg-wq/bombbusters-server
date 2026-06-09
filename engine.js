@@ -31,7 +31,7 @@ let S=null;
 const VN=['ケン','アオイ','ユメ','リク'];
 const EQUIP={1:{name:'コトナルラベル',kind:'kotonal'},2:{name:'イレカエシーバー',kind:'swap'},3:{name:'ミッツケル探知機',kind:'mitsu'},4:{name:'ヒント付箋',kind:'reveal'},5:{name:'スーパー探知機',kind:'super'},6:{name:'失敗帳消し機',kind:'life'},7:{name:'非常電池',kind:'battery'},8:{name:'なんでもレーダー',kind:'radar'},9:{name:'万能氷',kind:'ice'},10:{name:'ドッチカアタ・レイ',kind:'dochi'},11:{name:'いつでもコーヒー',kind:'extra'},12:{name:'イコールラベル',kind:'equal'},13:{name:'ヒミツ底',kind:'himitsu'}};
 const DETCFG={free:{tiles:2,decls:1,yellow:false,name:'フツー探知機',sel:'2本'},mitsu:{tiles:3,decls:1,yellow:false,name:'ミッツケル探知機',sel:'3本'},dochi:{tiles:1,decls:2,yellow:true,name:'ドッチカアタ・レイ',sel:'1本'}};
-const MISSIONS={'4':{reds:1,yellows:2,name:'#4 実地訓練1日目'},'8':{reds:1,yellows:2,name:'#8 最終試験'},'9':{reds:1,yellows:2,name:'#9 優先順位の判断'}};
+const MISSIONS={'4':{reds:1,yellows:2,name:'#4 実地訓練1日目'},'8':{reds:1,yellows:2,name:'#8 最終試験'},'9':{reds:1,yellows:2,name:'#9 優先順位の判断'},'11':{reds:1,yellows:2,name:'#11 赤のような青'},'16':{reds:1,yellows:2,name:'#16 つじつまは合っている'}};
 function g(id){return document.getElementById(id);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function pick(a,k){return shuffle(a.slice()).slice(0,k);}
@@ -49,6 +49,11 @@ function deal(){
   const players=[myName].concat(VN.slice(0,N-1)).map((nm,i)=>({name:nm,isYou:i===0,tiles:[],detector:true}));
   deck.forEach((t,i)=>players[i%N].tiles.push(Object.assign({cut:false,revealed:false,done:false},t)));
   players.forEach(p=>p.tiles.sort((a,b)=>a.val-b.val));
+  // #11: a drawn number's 4 codes become RED (cutting one = explosion). Convert blues->red.
+  var dangerNum=null;
+  if(msel==='11'){ dangerNum=ri(1,12);
+    players.forEach(function(p){p.tiles.forEach(function(t){ if(t.t==='B'&&t.n===dangerNum){ t.t='R'; t.danger=true; } });});
+  }
   // start info token: each player reveals 1 NON-RED tile (赤には情報トークンを置けない)
   // info tokens are placed one-by-one in turn order during runInfoPhase()
   var redUncertain=false,redCandidates=null,yellowUncertain=false,yellowCandidates=null;
@@ -59,17 +64,20 @@ function deal(){
     if(yg.length){var oth2=[1,2,3,4,5,6,7,8,9,10,11].filter(x=>yg.indexOf(x)<0);var dec2=oth2[Math.floor(Math.random()*oth2.length)];yellowCandidates=shuffle(yg.concat([dec2]));yellowUncertain=true;}
   }
   const en=N;
-  const eqPool=(msel==='9')?[1,2,3,4,5,6,7,8,9,10,11,12,13]:[1,2,3,4,5,6,7,8,9,10,11,12];
+  var _mnum=parseInt(msel); var _ge9=(!isNaN(_mnum)&&_mnum>=9);
+  var eqPool=_ge9?[1,2,3,4,5,6,7,8,9,10,11,12,13]:[1,2,3,4,5,6,7,8,9,10,11,12];
+  if(dangerNum) eqPool=eqPool.filter(function(x){return x!==dangerNum;});
   const equip=pick(eqPool,en).map(id=>({id,name:EQUIP[id].name,kind:EQUIP[id].kind,used:false,num:id}));
   equip.sort((a,b)=>a.num-b.num);
-  var prio=null;if(msel==='9'){prio={nums:pick([1,2,3,4,5,6,7,8,9,10,11,12],3),ptr:0};}
+  var prio=null;if(msel==='9'){prio={nums:pick([1,2,3,4,5,6,7,8,9,10,11,12],3),ptr:0,thr:2};}else if(msel==='16'){prio={nums:pick([1,2,3,4,5,6,7,8,9,10,11,12],3),ptr:0,thr:4};}
   var skill=0;try{skill=parseInt(localStorage.getItem('bb_skill'))||0;}catch(e){}
   var _ord=[];for(var _z=0;_z<N;_z++)_ord.push(_z);var order=shuffle(_ord);var captain=order[0];
-  S={players,reds:R,yellows:Y,lives:N,maxLives:N,turn:0,cut:{},yCut:0,redDone:0,over:null,sel:null,pick:null,extra:false,passStreak:0,equip,mission:mname,prio:prio,skill:skill,_scored:false,redUncertain:redUncertain,redCandidates:redCandidates,yellowUncertain:yellowUncertain,yellowCandidates:yellowCandidates,detMode:false,detSel:[],detKind:'free',detEquipIdx:-1,detDecls:[],detPick:null,infoPlace:null,ownSel:null,labelMode:false,labelSel:[],labelKind:null,labelEquipIdx:-1,swapMode:false,swapTarget:-1,swapEquipIdx:-1,iceShield:false,pickInfo:false,captain:captain,order:order,infoPhase:true,infoIdx:0,log:[]};
+  S={players,reds:R,yellows:Y,lives:N,maxLives:N,turn:0,cut:{},yCut:0,redDone:0,over:null,sel:null,pick:null,extra:false,passStreak:0,equip,mission:mname,prio:prio,skill:skill,_scored:false,redUncertain:redUncertain,redCandidates:redCandidates,yellowUncertain:yellowUncertain,yellowCandidates:yellowCandidates,dangerNum:dangerNum,detMode:false,detSel:[],detKind:'free',detEquipIdx:-1,detDecls:[],detPick:null,infoPlace:null,ownSel:null,labelMode:false,labelSel:[],labelKind:null,labelEquipIdx:-1,swapMode:false,swapTarget:-1,swapEquipIdx:-1,iceShield:false,pickInfo:false,captain:captain,order:order,infoPhase:true,infoIdx:0,log:[]};
   pushLog('['+mname+'] 配り完了。赤'+R+'・黄'+Y+'を含む'+(48+R+Y)+'枚を'+N+'卓へ。装備'+en+'枚。各自1枚公開。');
   pushLog('AIレベル Lv.'+skill+'（プレイを重ねるほど賢くなります）。'+(redUncertain?' #8：赤は「？2カ所」のどちらか1本、黄は「？3カ所」のいずれか2本。':''));
   pushLog('👑 隊長（親）は <b>'+players[captain].name+'</b>。手番順：'+order.map(function(i){return players[i].name;}).join(' → ')+'。');
-  if(prio)pushLog('🔢 #9 優先順位：'+prio.nums.map(function(x,i){return String.fromCharCode(97+i)+'='+x;}).join(' → ')+'。a→b→cの順に各2本切るごとに次が解禁。順番外の数字は切れません。');
+  if(prio){var _need=(prio.thr||2);pushLog('🔢 優先順位：'+prio.nums.map(function(x,i){return String.fromCharCode(97+i)+'='+x;}).join(' → ')+'。a→b→cの順に各'+_need+'本切るごとに次が解禁。順番外の数字は切れません。');}
+  if(dangerNum)pushLog('☠ #11：数字 <b>'+dangerNum+'</b> の4本のコードは赤と同じ扱い。切ると即爆発・失敗。切らずに処理すること。','bad');
   g('setupCard').classList.add('hidden');g('board').classList.remove('hidden');render();saveGame();runInfoPhase();
 }
 function cutBlue(n){return S.cut[n]||0;}
@@ -78,7 +86,7 @@ function activeRedUndone(){let c=0;S.players.forEach(p=>p.tiles.forEach(t=>{if(t
 function pushLog(s,cls){S.log.unshift('<div class="'+(cls||'')+'">'+s+'</div>');}
 function recomputeCuts(){S.cut={};S.players.forEach(p=>p.tiles.forEach(t=>{if(t.t==='B'&&t.cut)S.cut[t.n]=(S.cut[t.n]||0)+1;}));advancePrio();}
 function prioLocked(n){if(!S.prio)return false;var idx=S.prio.nums.indexOf(n);return idx>S.prio.ptr;}
-function advancePrio(){if(!S.prio)return;while(S.prio.ptr<S.prio.nums.length&&cutBlue(S.prio.nums[S.prio.ptr])>=2)S.prio.ptr++;}
+function advancePrio(){if(!S.prio)return;var thr=S.prio.thr||2;while(S.prio.ptr<S.prio.nums.length&&cutBlue(S.prio.nums[S.prio.ptr])>=thr)S.prio.ptr++;}
 function prioCanAct(pi){if(!S.prio)return true;var act=S.players[pi].tiles.filter(function(t){return !t.cut&&!t.done;});if(act.length===0)return true;var freeBlue=act.some(function(t){return t.t==='B'&&!prioLocked(t.n);});var hasY=act.some(function(t){return t.t==='Y';});var allRed=act.every(function(t){return t.t==='R';});return freeBlue||hasY||allRed;}
 function bumpSkill(){if(S._scored)return;S._scored=true;S.skill=(S.skill||0)+1;try{localStorage.setItem('bb_skill',S.skill);}catch(e){}pushLog('AIがこの卓で経験を積んだ → 次回からAI Lv.'+S.skill+'。');}
 function checkEnd(){if(S.lives<=0){S.over='lose';pushLog('起爆ダイヤルが限界。爆発…失敗。','bad');bumpSkill();return;}if(activeNonRed()===0&&activeRedUndone()===0){S.over='win';pushLog('すべて処理完了！爆弾解除成功！','ok');bumpSkill();}}
@@ -592,7 +600,7 @@ function viewFor(seat){
     youPlaceMissInfo:!!(S.infoPlace&&S.infoPlace.seat===seat), missOpts:(S.infoPlace&&S.infoPlace.seat===seat)?S.infoPlace.opts:null, missInfoPending:!!S.infoPlace, missInfoName:S.infoPlace?S.players[S.infoPlace.seat].name:null,
     youDetPick:!!(S.detPick&&S.detPick.seat===seat), detPickVal:(S.detPick&&S.detPick.seat===seat)?S.detPick.hitVal:null, detPickPending:!!S.detPick, detPickName:S.detPick?S.players[S.detPick.seat].name:null,
     lives:S.lives, maxLives:S.maxLives, reds:S.reds, redDone:S.redDone,
-    yCut:S.yCut, mission:S.mission, prio:S.prio?{nums:S.prio.nums,ptr:S.prio.ptr}:null,
+    yCut:S.yCut, mission:S.mission, dangerNum:S.dangerNum||null, prio:S.prio?{nums:S.prio.nums,ptr:S.prio.ptr,thr:S.prio.thr||2}:null,
     cut:S.cut,
     marks:(function(){var ym=[],rm=[];S.players.forEach(function(p){p.tiles.forEach(function(t){if(t.t==='Y')ym.push({n:t.n,cut:!!(t.cut||t.done)});if(t.t==='R')rm.push({n:t.n,done:!!t.done});});});return {yellows:ym,reds:rm,redUncertain:S.redUncertain,redCandidates:S.redCandidates,yellowUncertain:S.yellowUncertain,yellowCandidates:S.yellowCandidates};})(),
     equip:(S.equip||[]).map(function(e){return {num:e.num,name:e.name,kind:e.kind,used:e.used};}),
