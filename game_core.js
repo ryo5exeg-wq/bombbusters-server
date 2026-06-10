@@ -45,6 +45,7 @@ function ri(a,b){return a+Math.floor(Math.random()*(b-a+1));}
 function findTile(pred){for(const p of S.players)for(const t of p.tiles)if(pred(t))return t;return null;}
 function deal(){
   const myName=(g('myName').value||'りょうま').trim();
+  var aiStyleSel=(g('aiStyle')&&g('aiStyle').value)||'std';
   const msel=g('mission').value;var N=Math.max(4,Math.min(5,parseInt(g('pcount').value)||4));let R,Y,mname;
   if(msel==='R'){R=ri(4,7);Y=ri(2,4);mname='ランダム';}else{R=MISSIONS[msel].reds;Y=MISSIONS[msel].yellows;mname=MISSIONS[msel].name;}
   let deck=[];
@@ -78,7 +79,7 @@ function deal(){
   var prio=null;if(msel==='9'){prio={nums:pick([1,2,3,4,5,6,7,8,9,10,11,12],3),ptr:0,thr:2};}else if(msel==='16'){prio={nums:pick([1,2,3,4,5,6,7,8,9,10,11,12],3),ptr:0,thr:4};}
   var skill=0;try{skill=parseInt(localStorage.getItem('bb_skill'))||0;}catch(e){}
   var _ord=[];for(var _z=0;_z<N;_z++)_ord.push(_z);var order=shuffle(_ord);var captain=order[0];
-  S={players,reds:R,yellows:Y,lives:N,maxLives:N,turn:0,cut:{},yCut:0,redDone:0,over:null,sel:null,pick:null,extra:false,passStreak:0,equip,mission:mname,prio:prio,skill:skill,_scored:false,redUncertain:redUncertain,redCandidates:redCandidates,yellowUncertain:yellowUncertain,yellowCandidates:yellowCandidates,dangerNum:dangerNum,detMode:false,detSel:[],detKind:'free',detEquipIdx:-1,detDecls:[],detPick:null,infoPlace:null,ownSel:null,labelMode:false,labelSel:[],labelKind:null,labelEquipIdx:-1,swapMode:false,swapTarget:-1,swapEquipIdx:-1,iceShield:false,pickInfo:false,captain:captain,order:order,infoPhase:true,infoIdx:0,log:[]};
+  S={players,reds:R,yellows:Y,lives:N,maxLives:N,turn:0,cut:{},yCut:0,redDone:0,over:null,sel:null,pick:null,extra:false,passStreak:0,equip,mission:mname,prio:prio,skill:skill,aiStyle:aiStyleSel,_scored:false,redUncertain:redUncertain,redCandidates:redCandidates,yellowUncertain:yellowUncertain,yellowCandidates:yellowCandidates,dangerNum:dangerNum,detMode:false,detSel:[],detKind:'free',detEquipIdx:-1,detDecls:[],detPick:null,infoPlace:null,ownSel:null,labelMode:false,labelSel:[],labelKind:null,labelEquipIdx:-1,swapMode:false,swapTarget:-1,swapEquipIdx:-1,iceShield:false,pickInfo:false,captain:captain,order:order,infoPhase:true,infoIdx:0,log:[]};
   pushLog('['+mname+'] 配り完了。赤'+R+'・黄'+Y+'を含む'+(48+R+Y)+'枚を'+N+'卓へ。装備'+en+'枚。各自1枚公開。');
   pushLog('AIレベル Lv.'+skill+'（プレイを重ねるほど賢くなります）。'+(redUncertain?' #8：赤は「？2カ所」のどちらか1本、黄は「？3カ所」のいずれか2本。':''));
   pushLog('👑 隊長（親）は <b>'+players[captain].name+'</b>。手番順：'+order.map(function(i){return players[i].name;}).join(' → ')+'。');
@@ -145,9 +146,11 @@ function decideMove(pi){
   function gB(b,tag){return{kind:'guess',n:b.n,target:{pi:b.pi,i:b.i},text:'<span style="color:var(--gold)">'+tag+'</span>：'+me.name+'は '+S.players[b.pi].name+' の'+L(b.i)+'へ「'+b.n+'」（青'+Math.round(b.p*100)+'%・赤'+Math.round(b.pR*100)+'%）。'};}
   function gY(b){return{kind:'guessY',target:{pi:b.pi,i:b.i},text:'<span style="color:var(--gold)">黄</span>：'+me.name+'は '+S.players[b.pi].name+' の'+L(b.i)+'を黄と読んで「黄」宣言（黄'+Math.round(b.p*100)+'%）。'};}
   var skl=S.skill||0;
-  var redCap=0.05;                       // never knowingly risk an instant-death red guess
-  var thr=Math.min(0.92,0.70+skl*0.03);  // confident 2-person cut threshold
-  var lowThr=0.60;                        // moderate (still red-safe) cut threshold
+  // AIの性格（safe=慎重 / std=標準 / bold=大胆）
+  var aiSt=S.aiStyle||'std';
+  var redCap=(aiSt==='safe')?0.02:((aiSt==='bold')?0.12:0.05);   // 赤を引くリスクの許容上限
+  var thr=Math.min(0.92,((aiSt==='safe')?0.78:((aiSt==='bold')?0.62:0.70))+skl*0.03);  // 自信を持って2人切断する閾値
+  var lowThr=(aiSt==='safe')?0.68:((aiSt==='bold')?0.52:0.60);    // ほどほど閾値
   var detThr=0.60;                        // use the detector when this reliable
   var forcedFloor=0.45;                   // floor when breaking an all-pass deadlock
   if(bg&&bg.p>=thr&&bg.pR<=redCap)return gB(bg,'読み');
@@ -366,6 +369,7 @@ function createGame(opts){
   var pcount = opts.pcount || names.length;
   __inputs.myName = names[0] || 'P1';
   __inputs.mission = opts.mission || '4';
+  __inputs.aiStyle = opts.aiStyle || 'std';
   __inputs.pcount = String(pcount);
   deal();                                  // builds module-global S
   names.forEach(function(nm,i){ if(S.players[i]) S.players[i].name = nm; });

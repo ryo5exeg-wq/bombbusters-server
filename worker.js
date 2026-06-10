@@ -41,6 +41,8 @@ export class GameRoom {
     this.state = state;
     this.env = env;
     this.room = null;
+    this.dirty = false;        // 状態が変わったときだけ保存する
+    this.lastSaveTs = 0;
   }
 
   async load() {
@@ -50,6 +52,8 @@ export class GameRoom {
   async save() {
     await this.state.storage.put('room', this.room);
     await this.state.storage.setAlarm(Date.now() + ROOM_TTL);
+    this.dirty = false;
+    this.lastSaveTs = Date.now();
   }
   async alarm() {            // inactivity cleanup
     await this.state.storage.deleteAll();
@@ -70,7 +74,7 @@ export class GameRoom {
     this.room.game = Engine.getState();
     if (JSON.stringify(this.room.game) !== before) this.bumpRev();
   }
-  bumpRev() { this.room.rev = (this.room.rev || 0) + 1; }
+  bumpRev() { this.room.rev = (this.room.rev || 0) + 1; this.dirty = true; }
 
   async fetch(request) {
     const url = new URL(request.url);
@@ -131,10 +135,11 @@ export class GameRoom {
       let view = null;
       if (this.room.started && this.room.game) {
         Engine.setState(this.room.game);
-        view = Engine.viewFor(seat >= 0 ? seat : 0);
+        view = Engine.viewFor(seat);      // seat=-1（観戦・不明ID）は全手札マスク
         this.room.game = Engine.getState();
       }
-      await this.save();
+      // ポーリングごとの書き込みをやめ、状態変化時＋30秒周期のみ保存
+      if (this.dirty || Date.now() - this.lastSaveTs > 30000) await this.save();
       return json({ ok: true, started: this.room.started, you: seat, room: this.publicRoom(), view, rev: this.room.rev || 0 });
     }
 
