@@ -162,17 +162,16 @@ function decideMove(pi){
   if(by&&by.p>=lowThr&&by.pR<=redCap)return gY(by);
   if(bg&&bg.pR<=redCap&&bg.p>=forcedFloor)return gB(bg,'勝負');
   // break an all-pass deadlock: once everyone has passed around, force the safest action
-  var forced=(S.passStreak||0)>=Math.max(1,activePlayerCount()-1);
-  if(forced){
-    var cand=[];
-    if(bg)cand.push({m:gB(bg,'勝負'),p:bg.p,pR:bg.pR});
-    if(by)cand.push({m:gY(by),p:by.p,pR:by.pR});
-    if(dm)cand.push({m:dm,p:dm._pc,pR:0});
-    cand.sort(function(a,b){if(Math.abs(a.pR-b.pR)>0.001)return a.pR-b.pR;return b.p-a.p;});
-    if(cand.length)return cand[0].m;
-  }
+  // パスは存在しない：自信のある手がなくても、最も安全な行動を選んで必ず実行する
+  var cand=[];
+  if(bg)cand.push({m:gB(bg,'勝負'),p:bg.p,pR:bg.pR});
+  if(by)cand.push({m:gY(by),p:by.p,pR:by.pR});
+  if(dm)cand.push({m:dm,p:dm._pc,pR:0});
+  cand.sort(function(a,b){if(Math.abs(a.pR-b.pR)>0.001)return a.pR-b.pR;return b.p-a.p;});
+  if(cand.length)return cand[0].m;
   if(mine.some(function(o){return o.t.t==='R';}))return{kind:'revealAllRed',text:me.name+'は手がかりが尽きたため赤を公開して処理する。'};
-  return{kind:'pass',text:me.name+'：安全な手がないので待機。'};
+  // 保険（理論上ここには来ない）：スタック防止のためだけに残す
+  return{kind:'pass',text:me.name+'：行動できる手がない。'};
 }
 function resolveMove(mv,pi){
   const me=S.players[pi];
