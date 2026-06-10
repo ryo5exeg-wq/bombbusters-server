@@ -64,10 +64,13 @@ export class GameRoom {
   // advance any AI / disconnected-human turns until an active human's turn (or game over)
   advanceBots() {
     if (!this.room.started || !this.room.game) return;
+    const before = JSON.stringify(this.room.game);
     Engine.setState(this.room.game);
     Engine.stepAI(this.activeHumans());
     this.room.game = Engine.getState();
+    if (JSON.stringify(this.room.game) !== before) this.bumpRev();
   }
+  bumpRev() { this.room.rev = (this.room.rev || 0) + 1; }
 
   async fetch(request) {
     const url = new URL(request.url);
@@ -78,7 +81,7 @@ export class GameRoom {
     if (path === 'create') {
       this.room = {
         code: body.code, mission: body.mission || '4', pcount: Math.min(5, Math.max(4, body.pcount || 4)),
-        started: false, host: null, players: [], humanSeats: [], game: null, lastSeen: {}
+        started: false, host: null, players: [], humanSeats: [], game: null, lastSeen: {}, rev: 1
       };
       const me = this.addPlayer(body.hostName || 'ホスト');
       this.room.host = me.id; this.touch(me.id);
@@ -132,7 +135,7 @@ export class GameRoom {
         this.room.game = Engine.getState();
       }
       await this.save();
-      return json({ ok: true, started: this.room.started, you: seat, room: this.publicRoom(), view });
+      return json({ ok: true, started: this.room.started, you: seat, room: this.publicRoom(), view, rev: this.room.rev || 0 });
     }
 
     if (path === 'action') {
@@ -140,11 +143,15 @@ export class GameRoom {
       if (!me) return json({ error: 'unknown player' }, 403);
       if (!this.room.started) return json({ error: 'not started' }, 400);
       this.touch(body.playerId);
+      // 楽観的ロック: クライアントが古い盤面から操作した場合は拒否（rev未送信の旧クライアントは素通し）
+      if (body.rev !== undefined && body.rev !== (this.room.rev || 0))
+        return json({ ok: false, err: '盤面が更新されました。最新の状態を確認してから操作してください', stale: true, rev: this.room.rev || 0 });
       Engine.setState(this.room.game);
       const r = Engine.applyMove(me.seat, body.move || {}, this.activeHumans());
       this.room.game = Engine.getState();
+      if (r.ok) this.bumpRev();
       await this.save();
-      return json({ ok: r.ok, err: r.err || null, view: r.ok ? this.viewSafe(me.seat) : null });
+      return json({ ok: r.ok, err: r.err || null, view: r.ok ? this.viewSafe(me.seat) : null, rev: this.room.rev || 0 });
     }
 
     return json({ error: 'unknown route' }, 404);
@@ -160,6 +167,7 @@ export class GameRoom {
     Engine.createGame({ names, mission: this.room.mission, pcount: this.room.pcount });
     Engine.serverInfoStep(this.activeHumans());
     this.room.game = Engine.getState();
+    this.bumpRev();
   }
   addPlayer(name) {
     const used = new Set(this.room.players.map(p => p.seat));
