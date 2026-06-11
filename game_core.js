@@ -511,8 +511,11 @@ function applyEquip(seat, ei, params, humanSeats){
   S.humanSeats=humanSeats;
   if(S.over) return {ok:false,err:'game over'};
   if(S.infoPhase) return {ok:false,err:'準備中は使えません'};
-  if(S.turn!==seat) return {ok:false,err:'あなたの手番に使ってください'};
   var e=S.equip[ei]; if(!e) return {ok:false,err:'装備が見つかりません'};
+  // 「いつでも使える」装備は他人の手番でも使用できる（実物カード準拠）
+  // ラベル2種・ヒント付箋・イレカエシーバー・失敗帳消し機・非常電池・なんでもレーダー
+  var ANYTIME=['kotonal','equal','reveal','swap','life','battery','radar'];
+  if(S.turn!==seat && ANYTIME.indexOf(e.kind)<0) return {ok:false,err:'あなたの手番に使ってください'};
   if(e.used) return {ok:false,err:'使用済みです'};
   if(e.kind==='himitsu'){ if(S.yCut<=0) return {ok:false,err:'ヒミツ底は黄コードを切断すると使えます'}; }
   else { if(cutBlue(e.num)<2) return {ok:false,err:'対応する数字のペアが切られると使えます'}; }
