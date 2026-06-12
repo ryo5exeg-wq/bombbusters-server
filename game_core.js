@@ -172,7 +172,8 @@ function decideMove(pi){
   if(dm)cand.push({m:dm,p:dm._pc,pR:0});
   cand.sort(function(a,b){if(Math.abs(a.pR-b.pR)>0.001)return a.pR-b.pR;return b.p-a.p;});
   if(cand.length)return cand[0].m;
-  if(mine.some(function(o){return o.t.t==='R';}))return{kind:'revealAllRed',text:me.name+'は手がかりが尽きたため赤を公開して処理する。'};
+  var actT=me.tiles.filter(function(t){return !t.cut&&!t.done;});
+  if(actT.length&&actT.every(function(t){return t.t==='R';}))return{kind:'revealAllRed',text:me.name+'は手札が赤のみになったため公開して処理する。'};
   // 保険（理論上ここには来ない）：スタック防止のためだけに残す
   return{kind:'pass',text:me.name+'：行動できる手がない。'};
 }
@@ -192,7 +193,8 @@ function resolveMove(mv,pi){
   else if(mv.kind==='guessY'){const T=S.players[mv.target.pi].tiles[mv.target.i];const where=S.players[mv.target.pi].name+'の'+L(mv.target.i)+'';if(T.t==='Y'){T.cut=true;const my=me.tiles.find(t=>t.t==='Y'&&!t.cut&&!t.done);if(my)my.cut=true;S.yCut+=2;pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → <b>黄ペア切断。</b>','ok');}else if(T.t==='R'){if(S.iceShield){pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → 赤だったが<b>万能氷で無効</b>。','ok');}else{T.cut=true;pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → <b>赤を直撃！爆発</b>','bad');S.over='lose';}}else{T.revealed=true;S.lives--;pushLog('<b>'+me.name+'</b> → '+where+'に「黄」宣言 → はずれ（実際は'+T.n+'）。残機-1・公開。','bad');}}
   else if(mv.kind==='detector'){S.players[pi].detector=false;detectorResolve(pi,mv.targetPi,[mv.i1,mv.i2],[mv.n]);}
   else if(mv.kind==='equip'){var e=S.equip[mv.ei];e.used=true;var P=S.players[pi];var f=P.tiles.find(function(t){return t.t==='B'&&t.n===mv.n&&!t.cut&&!t.done&&!t.revealed;});if(f){f.revealed=true;pushLog('<b>'+me.name+'</b>：装備「'+e.name+'」で自分の '+mv.n+' を1枚公開（仲間へのヒント）。','ok');}else{pushLog('<b>'+me.name+'</b>：装備「'+e.name+'」を使用（対象なし）。');}}
-  else{S.passStreak=(S.passStreak||0)+1;pushLog(me.name+'：（行動なし）。');}
+  else{S.passStreak=(S.passStreak||0)+1;pushLog(me.name+'：（行動なし）。');
+    if(S.passStreak>=activePlayerCount()+2&&!S.over){S.over='lose';pushLog('手詰まり：これ以上コードを切る手段がありません → ミッション失敗…','bad');bumpSkill();}}
 }
 function handEmpty(pi){return !S.players[pi].tiles.some(function(t){return !t.cut&&!t.done;});}
 function activePlayerCount(){var c=0;S.order.forEach(function(pi){if(!handEmpty(pi))c++;});return c;}
