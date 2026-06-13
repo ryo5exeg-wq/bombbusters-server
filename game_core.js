@@ -37,7 +37,7 @@ let S=null;
 const VN=['ケン','アオイ','ユメ','リク'];
 const EQUIP={1:{name:'コトナルラベル',kind:'kotonal'},2:{name:'イレカエシーバー',kind:'swap'},3:{name:'ミッツケル探知機',kind:'mitsu'},4:{name:'ヒント付箋',kind:'reveal'},5:{name:'スーパー探知機',kind:'super'},6:{name:'失敗帳消し機',kind:'life'},7:{name:'非常電池',kind:'battery'},8:{name:'なんでもレーダー',kind:'radar'},9:{name:'万能氷',kind:'ice'},10:{name:'ドッチカアタ・レイ',kind:'dochi'},11:{name:'いつでもコーヒー',kind:'extra'},12:{name:'イコールラベル',kind:'equal'},13:{name:'ヒミツ底',kind:'himitsu'}};
 const DETCFG={free:{tiles:2,decls:1,yellow:false,name:'フツー探知機',sel:'2本'},mitsu:{tiles:3,decls:1,yellow:false,name:'ミッツケル探知機',sel:'3本'},dochi:{tiles:1,decls:2,yellow:true,name:'ドッチカアタ・レイ',sel:'1本'}};
-const MISSIONS={'4':{reds:1,yellows:2,name:'#4 実地訓練1日目'},'8':{reds:1,yellows:2,name:'#8 最終試験'},'9':{reds:1,yellows:2,name:'#9 優先順位の判断'},'11':{reds:0,yellows:2,name:'#11 赤のような青'},'16':{reds:1,yellows:2,name:'#16 つじつまは合っている'},'20':{reds:1,yellows:2,name:'#20 悪い狼'}};
+const MISSIONS={'4':{reds:1,yellows:2,name:'#4 実地訓練1日目'},'8':{reds:1,yellows:2,name:'#8 最終試験'},'9':{reds:1,yellows:2,name:'#9 優先順位の判断'},'11':{reds:0,yellows:2,name:'#11 赤のような青'},'16':{reds:1,yellows:2,name:'#16 つじつまは合っている'},'20':{reds:1,yellows:2,name:'#20 悪い狼'},'21':{reds:1,yellows:2,name:'#21 ハギスによる死'}};
 function g(id){return document.getElementById(id);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function pick(a,k){return shuffle(a.slice()).slice(0,k);}
@@ -85,13 +85,14 @@ function deal(){
   var prio=null;if(msel==='9'){prio={nums:pick([1,2,3,4,5,6,7,8,9,10,11,12],3),ptr:0,thr:2};}else if(msel==='16'){prio={nums:pick([1,2,3,4,5,6,7,8,9,10,11,12],3),ptr:0,thr:4};}
   var skill=0;try{skill=parseInt(localStorage.getItem('bb_skill'))||0;}catch(e){}
   var _ord=[];for(var _z=0;_z<N;_z++)_ord.push(_z);var order=shuffle(_ord);var captain=order[0];
-  S={players,reds:R,yellows:Y,lives:N,maxLives:N,turn:0,cut:{},yCut:0,redDone:0,over:null,sel:null,pick:null,extra:false,passStreak:0,holds:{},equip,mission:mname,prio:prio,skill:skill,aiStyle:aiStyleSel,_scored:false,redUncertain:redUncertain,redCandidates:redCandidates,yellowUncertain:yellowUncertain,yellowCandidates:yellowCandidates,dangerNum:dangerNum,detMode:false,detSel:[],detKind:'free',detEquipIdx:-1,detDecls:[],detPick:null,infoPlace:null,ownSel:null,labelMode:false,labelSel:[],labelKind:null,labelEquipIdx:-1,swapMode:false,swapTarget:-1,swapEquipIdx:-1,iceShield:false,pickInfo:false,captain:captain,order:order,infoPhase:true,infoIdx:0,log:[]};
+  S={players,reds:R,yellows:Y,lives:N,maxLives:N,turn:0,cut:{},yCut:0,redDone:0,over:null,sel:null,pick:null,extra:false,passStreak:0,holds:{},equip,mission:mname,prio:prio,skill:skill,aiStyle:aiStyleSel,_scored:false,redUncertain:redUncertain,redCandidates:redCandidates,yellowUncertain:yellowUncertain,yellowCandidates:yellowCandidates,dangerNum:dangerNum,parityInfo:(msel==='21'),detMode:false,detSel:[],detKind:'free',detEquipIdx:-1,detDecls:[],detPick:null,infoPlace:null,ownSel:null,labelMode:false,labelSel:[],labelKind:null,labelEquipIdx:-1,swapMode:false,swapTarget:-1,swapEquipIdx:-1,iceShield:false,pickInfo:false,captain:captain,order:order,infoPhase:true,infoIdx:0,log:[]};
   pushLog('['+mname+'] 配り完了。赤'+R+'・黄'+Y+'を含む'+(48+R+Y)+'枚を'+N+'卓へ。装備'+en+'枚。各自1枚公開。');
   pushLog('AIレベル Lv.'+skill+'（プレイを重ねるほど賢くなります）。'+(redUncertain?' #8：赤は「？2カ所」のどちらか1本、黄は「？3カ所」のいずれか2本。':''));
   pushLog('👑 隊長（親）は <b>'+players[captain].name+'</b>。手番順：'+order.map(function(i){return players[i].name;}).join(' → ')+'。');
   if(prio){var _need=(prio.thr||2);pushLog('🔢 優先順位：'+prio.nums.map(function(x,i){return String.fromCharCode(97+i)+'='+x;}).join(' → ')+'。a→b→cの順に各'+_need+'本切るごとに次が解禁。順番外の数字は切れません。');}
   if(dangerNum)pushLog('☠ #11：数字 <b>'+dangerNum+'</b> の4本のコードは赤と同じ扱い。切ると即爆発・失敗。切らずに処理すること。','bad');
   if(msel==='20')pushLog('🐺 #20：各プレイヤーの右端に「✕」コードがあります。数値順に並んでおらず、探知機・装備の対象にできません（通常の宣言での切断は可能）。','bad');
+  if(msel==='21')pushLog('🥩 #21：情報トークンは数値ではなく「偶／奇」だけを示します（開始・2人切断の失敗・探知機の失敗・ヒント付箋すべて）。','bad');
   g('setupCard').classList.add('hidden');g('board').classList.remove('hidden');render();saveGame();runInfoPhase();
 }
 function cutBlue(n){return S.cut[n]||0;}
@@ -105,8 +106,17 @@ function prioCanAct(pi){if(!S.prio)return true;var act=S.players[pi].tiles.filte
 function bumpSkill(){if(S._scored)return;S._scored=true;S.skill=(S.skill||0)+1;try{localStorage.setItem('bb_skill',S.skill);}catch(e){}pushLog('AIがこの卓で経験を積んだ → 次回からAI Lv.'+S.skill+'。');}
 function checkEnd(){if(S.lives<=0){S.over='lose';pushLog('起爆ダイヤルが限界。爆発…失敗。','bad');bumpSkill();return;}if(activeNonRed()===0&&activeRedUndone()===0){S.over='win';pushLog('すべて処理完了！爆弾解除成功！','ok');bumpSkill();}}
 function ownActive(p){return p.tiles.map((t,i)=>({t,i})).filter(o=>!o.t.cut&&!o.t.done);}
-function publicRevealedTiles(except){let r=[];S.players.forEach((p,pi)=>{if(pi===except)return;p.tiles.forEach((t,i)=>{if(t.revealed&&!t.cut&&!t.done)r.push({pi,i,t});});});return r;}
+function publicRevealedTiles(except){let r=[];S.players.forEach((p,pi)=>{if(pi===except)return;p.tiles.forEach((t,i)=>{if(t.revealed&&!t.cut&&!t.done){if(S.parityInfo&&t.t==='B')return;r.push({pi,i,t});}});});return r;}
 function knownVal(t){return t.t==='B'?t.n:(t.t==='Y'?t.n+0.1:t.n+0.5);}
+function isBoundary(t){if(t.cut||t.done)return true;if(!t.revealed)return false;if(S.parityInfo)return t.t==='B';return true;}
+// #21: estimate a revealed blue's value from its (public) parity + position between nearest CUT/DONE anchors. No exact value used.
+function estVal(P,k){var t=P.tiles[k];var lv=0,rv=13;
+  for(var a=k-1;a>=0;a--){var x=P.tiles[a];if(x.xcode)continue;if(x.cut||x.done){lv=knownVal(x);break;}}
+  for(var b=k+1;b<P.tiles.length;b++){var y=P.tiles[b];if(y.xcode)continue;if(y.cut||y.done){rv=knownVal(y);break;}}
+  var mid=(lv+rv)/2,par=t.n%2,best=null,bd=99;
+  for(var v=Math.max(1,Math.ceil(lv));v<=Math.min(12,Math.floor(rv));v++){if((v%2)===par){var d=Math.abs(v-mid);if(d<bd){bd=d;best=v;}}}
+  return best!=null?best:Math.round(mid);}
+function bval(P,k){var t=P.tiles[k];if(t.cut||t.done)return knownVal(t);if(S.parityInfo&&t.revealed&&t.t==='B')return estVal(P,k);return knownVal(t);}
 function mateList(){var a=[];for(var i=1;i<S.players.length;i++)a.push(i+'='+S.players[i].name);return a.join(' / ');}
 function isMate(i){return i>=1&&i<S.players.length;}
 function L(i){return String.fromCharCode(65+i);}
@@ -116,9 +126,9 @@ function L(i){return String.fromCharCode(65+i);}
 function noteHold(pi,n){if(typeof n!=='number'||isNaN(n))return;S.holds=S.holds||{};(S.holds[pi]=S.holds[pi]||{})[n]=true;}
 function clearHold(pi,n){if(S.holds&&S.holds[pi])delete S.holds[pi][n];}
 function holdFitCount(p2,h){var c=0,P=S.players[p2];for(var i=0;i<P.tiles.length;i++){var t=P.tiles[i];if(t.cut||t.done||t.revealed)continue;var rg=tileRange(p2,i);if(h>=rg.lo&&h<=rg.hi)c++;}return c;}
-function tileRange(pi,i){var P=S.players[pi];if(P.tiles[i]&&P.tiles[i].xcode)return {lo:1,hi:12};var leftV=0,rightV=13;for(var k=i-1;k>=0;k--){var t=P.tiles[k];if(t.xcode)continue;if(t.revealed||t.cut||t.done){leftV=knownVal(t);break;}}for(var k2=i+1;k2<P.tiles.length;k2++){var t2=P.tiles[k2];if(t2.xcode)continue;if(t2.revealed||t2.cut||t2.done){rightV=knownVal(t2);break;}}return {lo:Math.max(1,Math.ceil(leftV)),hi:Math.min(12,Math.floor(rightV))};}
+function tileRange(pi,i){var P=S.players[pi];if(P.tiles[i]&&P.tiles[i].xcode)return {lo:1,hi:12};var leftV=0,rightV=13;for(var k=i-1;k>=0;k--){var t=P.tiles[k];if(t.xcode)continue;if(isBoundary(t)){leftV=bval(P,k);break;}}for(var k2=i+1;k2<P.tiles.length;k2++){var t2=P.tiles[k2];if(t2.xcode)continue;if(isBoundary(t2)){rightV=bval(P,k2);break;}}return {lo:Math.max(1,Math.ceil(leftV)),hi:Math.min(12,Math.floor(rightV))};}
 function hiddenRem(n){var rev=0;S.players.forEach(function(p){p.tiles.forEach(function(t){if(t.t==='B'&&t.n===n&&t.revealed&&!t.cut&&!t.done)rev++;});});return Math.max(0,4-cutBlue(n)-rev);}
-function rawRange(pi,i){var P=S.players[pi];if(P.tiles[i]&&P.tiles[i].xcode)return {leftV:0,rightV:13};var leftV=0,rightV=13;for(var k=i-1;k>=0;k--){var t=P.tiles[k];if(t.xcode)continue;if(t.revealed||t.cut||t.done){leftV=knownVal(t);break;}}for(var k2=i+1;k2<P.tiles.length;k2++){var t2=P.tiles[k2];if(t2.xcode)continue;if(t2.revealed||t2.cut||t2.done){rightV=knownVal(t2);break;}}return {leftV:leftV,rightV:rightV};}
+function rawRange(pi,i){var P=S.players[pi];if(P.tiles[i]&&P.tiles[i].xcode)return {leftV:0,rightV:13};var leftV=0,rightV=13;for(var k=i-1;k>=0;k--){var t=P.tiles[k];if(t.xcode)continue;if(isBoundary(t)){leftV=bval(P,k);break;}}for(var k2=i+1;k2<P.tiles.length;k2++){var t2=P.tiles[k2];if(t2.xcode)continue;if(isBoundary(t2)){rightV=bval(P,k2);break;}}return {leftV:leftV,rightV:rightV};}
 function remTypeIn(type,leftV,rightV){var c=0;S.players.forEach(function(p){p.tiles.forEach(function(t){if(t.t===type&&!t.cut&&!t.done&&t.val>leftV&&t.val<rightV)c++;});});return c;}
 function activeCount(){var c=0;S.players.forEach(function(p){if(p.tiles.some(function(t){return !t.cut&&!t.done;}))c++;});return c;}
 function yProb(p2,i){var P=S.players[p2];var rr=rawRange(p2,i);var lo=i;while(lo-1>=0&&!(P.tiles[lo-1].revealed||P.tiles[lo-1].cut||P.tiles[lo-1].done))lo--;var hi=i;while(hi+1<P.tiles.length&&!(P.tiles[hi+1].revealed||P.tiles[hi+1].cut||P.tiles[hi+1].done))hi++;var k=hi-lo+1,j=i-lo;var E=rr.leftV+(j+1)/(k+1)*(rr.rightV-rr.leftV);var wY=0,wR=0,wB=0;for(var n=1;n<=12;n++){if(n>=rr.leftV&&n<=rr.rightV){var c=hiddenRem(n);if(c>0)wB+=c/(1+Math.pow(n-E,2));}}S.players.forEach(function(p){p.tiles.forEach(function(t){if((t.t==='Y'||t.t==='R')&&!t.cut&&!t.done&&!t.revealed&&t.val>rr.leftV&&t.val<rr.rightV){var w=1/(1+Math.pow(t.val-E,2));if(t.t==='Y')wY+=w;else wR+=w;}});});var hs2=(S.holds&&S.holds[p2]);if(hs2){for(var hk2 in hs2){var h2=+hk2;if(!hs2[hk2])continue;if(h2>=rr.leftV&&h2<=rr.rightV&&hiddenRem(h2)>0){var f2=holdFitCount(p2,h2);if(f2>0)wB+=6.0/f2;}}}
@@ -172,6 +182,7 @@ function decideMove(pi){
   var lowThr=(aiSt==='safe')?0.68:((aiSt==='bold')?0.52:0.60);    // ほどほど閾値
   var detThr=0.60;                        // use the detector when this reliable
   var forcedFloor=0.45;                   // floor when breaking an all-pass deadlock
+  if(S.parityInfo){ thr=Math.min(thr,0.55); lowThr=Math.min(lowThr,0.45); detThr=0.50; }  // #21: 待ちは必敗なので少しだけ踏み込む
   if(bg&&bg.p>=thr&&bg.pR<=redCap)return gB(bg,'読み');
   if(by&&by.p>=thr&&by.pR<=redCap)return gY(by);
   if(dm&&dm._pc>=detThr)return dm;
@@ -641,7 +652,7 @@ function viewFor(seat){
     youPlaceMissInfo:!!(S.infoPlace&&S.infoPlace.seat===seat), missOpts:(S.infoPlace&&S.infoPlace.seat===seat)?S.infoPlace.opts:null, missInfoPending:!!S.infoPlace, missInfoName:S.infoPlace?S.players[S.infoPlace.seat].name:null,
     youDetPick:!!(S.detPick&&S.detPick.seat===seat), detPickVal:(S.detPick&&S.detPick.seat===seat)?S.detPick.hitVal:null, detPickPending:!!S.detPick, detPickName:S.detPick?S.players[S.detPick.seat].name:null,
     lives:S.lives, maxLives:S.maxLives, reds:S.reds, redDone:S.redDone,
-    yCut:S.yCut, mission:S.mission, dangerNum:S.dangerNum||null, prio:S.prio?{nums:S.prio.nums,ptr:S.prio.ptr,thr:S.prio.thr||2}:null,
+    yCut:S.yCut, mission:S.mission, dangerNum:S.dangerNum||null, parityInfo:!!S.parityInfo, prio:S.prio?{nums:S.prio.nums,ptr:S.prio.ptr,thr:S.prio.thr||2}:null,
     cut:S.cut,
     marks:(function(){var ym=[],rm=[];S.players.forEach(function(p){p.tiles.forEach(function(t){if(t.t==='Y')ym.push({n:t.n,cut:!!(t.cut||t.done)});if(t.t==='R')rm.push({n:t.n,done:!!t.done});});});return {yellows:ym,reds:rm,redUncertain:S.redUncertain,redCandidates:S.redCandidates,yellowUncertain:S.yellowUncertain,yellowCandidates:S.yellowCandidates};})(),
     equip:(S.equip||[]).map(function(e){return {num:e.num,name:e.name,kind:e.kind,used:e.used};}),
@@ -650,8 +661,10 @@ function viewFor(seat){
       return {
         name:p.name, detector:p.detector,
         tiles:p.tiles.map(function(t){
-          var shown = (pi===seat) || t.revealed || t.cut || t.done;
-          if(shown) return {t:t.t,n:t.n,val:t.val,cut:t.cut,done:t.done,revealed:t.revealed,danger:!!t.danger,xcode:!!t.xcode,relRight:t.relRight||null};
+          var own=(pi===seat);
+          if(own||t.cut||t.done) return {t:t.t,n:t.n,val:t.val,cut:t.cut,done:t.done,revealed:t.revealed,danger:!!t.danger,xcode:!!t.xcode,relRight:t.relRight||null};
+          if(t.revealed){ if(S.parityInfo&&t.t==='B') return {t:t.t,revealed:true,parity:(t.n%2),cut:false,done:false,danger:!!t.danger,xcode:!!t.xcode,relRight:t.relRight||null};
+            return {t:t.t,n:t.n,val:t.val,cut:t.cut,done:t.done,revealed:t.revealed,danger:!!t.danger,xcode:!!t.xcode,relRight:t.relRight||null}; }
           return {masked:true, cut:t.cut, done:t.done, xcode:!!t.xcode};
         })
       };
